@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: play-learn-protect-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: plp_user
+      MONGO_INITDB_ROOT_PASSWORD: plp_password
+      MONGO_INITDB_DATABASE: play_learn_protect
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - plp-network
+
+volumes:
+  mongo_data:
+
+networks:
+  plp-network:
+    driver: bridge
