@@ -12,7 +12,11 @@ export enum ConsentType {
     CLASSROOM = 'classroom',
 }
 
-@Schema({ timestamps: true })
+@Schema({
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+})
 export class Consent extends Document {
     @Prop({ type: String, enum: ConsentType, required: true })
     type: ConsentType;

@@ -151,12 +151,17 @@ export class AuthService {
   }
 
   async getProfileId(userId: string, role: string): Promise<string> {
+    console.log(`DEBUG: Searching profile for userId: ${userId}, role: ${role}`);
     if (role === UserRole.PARENT) {
       const profile = await this.parentProfileModel.findOne({ userId }).exec();
-      return profile ? (profile._id as Types.ObjectId).toString() : '';
+      const result = profile ? (profile._id as Types.ObjectId).toString() : '';
+      console.log(`DEBUG: Found ParentProfile: ${result}`);
+      return result;
     } else if (role === UserRole.TEACHER) {
       const profile = await this.teacherProfileModel.findOne({ userId }).exec();
-      return profile ? (profile._id as Types.ObjectId).toString() : '';
+      const result = profile ? (profile._id as Types.ObjectId).toString() : '';
+      console.log(`DEBUG: Found TeacherProfile: ${result}`);
+      return result;
     }
     return '';
   }

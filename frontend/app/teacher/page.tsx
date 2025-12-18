@@ -177,6 +177,7 @@ export default function TeacherDashboard() {
                   </button>
                 </div>
 
+
                 {showAddClassroom && (
                   <form onSubmit={handleAddClassroom} className="bg-white p-4 rounded-lg shadow mb-4">
                     <div className="space-y-4">

@@ -53,18 +53,28 @@ export class TeacherService {
   }
 
   async getClassrooms(teacherId: string) {
-    const classrooms = await this.classroomModel.find({ teacherId })
+    console.log('DEBUG: TeacherService.getClassrooms searching for teacherId:', teacherId);
+
+    // Explicitly cast to ObjectId
+    const query = Types.ObjectId.isValid(teacherId)
+      ? { teacherId: new Types.ObjectId(teacherId) }
+      : { teacherId };
+
+    const classrooms = await this.classroomModel.find(query)
       .populate('classroomStudents')
       .sort({ createdAt: -1 })
       .exec();
 
-    // Manual population for students count or list if needed
-    // For now returning classrooms
+    console.log(`DEBUG: Real classrooms found in DB: ${classrooms.length}`);
     return classrooms;
   }
 
   async getClassroom(teacherId: string, id: string) {
-    const classroom = await this.classroomModel.findOne({ _id: id, teacherId })
+    const query = {
+      _id: Types.ObjectId.isValid(id) ? new Types.ObjectId(id) : id,
+      teacherId: Types.ObjectId.isValid(teacherId) ? new Types.ObjectId(teacherId) : teacherId,
+    };
+    const classroom = await this.classroomModel.findOne(query)
       .populate('classroomStudents')
       .exec();
 
@@ -80,8 +90,12 @@ export class TeacherService {
     classroomId: string,
     updateClassroomDto: UpdateClassroomDto,
   ) {
+    const query = {
+      _id: Types.ObjectId.isValid(classroomId) ? new Types.ObjectId(classroomId) : classroomId,
+      teacherId: Types.ObjectId.isValid(teacherId) ? new Types.ObjectId(teacherId) : teacherId,
+    };
     const classroom = await this.classroomModel.findOneAndUpdate(
-      { _id: classroomId, teacherId },
+      query,
       updateClassroomDto,
       { new: true }
     ).exec();
@@ -94,7 +108,11 @@ export class TeacherService {
   }
 
   async deleteClassroom(teacherId: string, classroomId: string) {
-    const classroom = await this.classroomModel.findOneAndDelete({ _id: classroomId, teacherId }).exec();
+    const query = {
+      _id: Types.ObjectId.isValid(classroomId) ? new Types.ObjectId(classroomId) : classroomId,
+      teacherId: Types.ObjectId.isValid(teacherId) ? new Types.ObjectId(teacherId) : teacherId,
+    };
+    const classroom = await this.classroomModel.findOneAndDelete(query).exec();
     if (!classroom) {
       throw new NotFoundException('Classroom not found');
     }
@@ -183,7 +201,10 @@ export class TeacherService {
   async getClassroomAnalytics(teacherId: string, classroomId: string) {
     const classroom = await this.getClassroom(teacherId, classroomId);
 
-    const classroomStudents = await this.classroomStudentModel.find({ classroomId }).populate('childId').exec();
+    const classroomQuery = {
+      classroomId: Types.ObjectId.isValid(classroomId) ? new Types.ObjectId(classroomId) : classroomId
+    };
+    const classroomStudents = await this.classroomStudentModel.find(classroomQuery).populate('childId').exec();
     const students = classroomStudents.map((cs) => cs.childId as unknown as ChildProfile);
 
     // Calculate total points
@@ -254,7 +275,10 @@ export class TeacherService {
   async getClassroomLeaderboard(teacherId: string, classroomId: string, limit = 10) {
     const classroom = await this.getClassroom(teacherId, classroomId);
 
-    const classroomStudents = await this.classroomStudentModel.find({ classroomId }).populate('childId').exec();
+    const classroomQuery = {
+      classroomId: Types.ObjectId.isValid(classroomId) ? new Types.ObjectId(classroomId) : classroomId
+    };
+    const classroomStudents = await this.classroomStudentModel.find(classroomQuery).populate('childId').exec();
     const students = classroomStudents
       .map((cs) => cs.childId as unknown as ChildProfile)
       .sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0))

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Game, GameType } from '../schemas/game.schema';
 import { GameProgress } from '../schemas/game-progress.schema';
 import { ChildProfile } from '../schemas/child-profile.schema';
@@ -31,15 +31,19 @@ export class GamesService {
   }
 
   async getGameById(id: string) {
-    const game = await this.gameModel.findById(id).exec();
+    console.log('DEBUG: GamesService.getGameById called with id:', id);
+    const queryId = Types.ObjectId.isValid(id) ? new Types.ObjectId(id) : id;
+    const game = await this.gameModel.findById(queryId).exec();
     if (!game) {
+      console.log('DEBUG: Game not found for id:', id);
       throw new NotFoundException('Game not found');
     }
     return game;
   }
 
   async getGamesForChild(childId: string) {
-    const child = await this.childModel.findById(childId).exec();
+    const queryId = Types.ObjectId.isValid(childId) ? new Types.ObjectId(childId) : childId;
+    const child = await this.childModel.findById(queryId).exec();
     if (!child) {
       throw new NotFoundException('Child not found');
     }
@@ -59,12 +63,14 @@ export class GamesService {
     const { childId, gameId, score, duration, accuracyPercent, metadata } = completeGameDto;
 
     // Verify child and game exist
-    const child = await this.childModel.findById(childId).exec();
+    const childQueryId = Types.ObjectId.isValid(childId) ? new Types.ObjectId(childId) : childId;
+    const child = await this.childModel.findById(childQueryId).exec();
     if (!child) {
       throw new NotFoundException('Child not found');
     }
 
-    const game = await this.gameModel.findById(gameId).exec();
+    const gameQueryId = Types.ObjectId.isValid(gameId) ? new Types.ObjectId(gameId) : gameId;
+    const game = await this.gameModel.findById(gameQueryId).exec();
     if (!game) {
       throw new NotFoundException('Game not found');
     }
@@ -154,14 +160,21 @@ export class GamesService {
   }
 
   async getChildProgress(childId: string) {
-    return await this.progressModel.find({ childId })
+    const query = {
+      childId: Types.ObjectId.isValid(childId) ? new Types.ObjectId(childId) : childId,
+    };
+    return await this.progressModel.find(query)
       .populate('gameId')
       .sort({ lastPlayedAt: -1 })
       .exec();
   }
 
   async getGameProgress(childId: string, gameId: string) {
-    return await this.progressModel.findOne({ childId, gameId })
+    const query = {
+      childId: Types.ObjectId.isValid(childId) ? new Types.ObjectId(childId) : childId,
+      gameId: Types.ObjectId.isValid(gameId) ? new Types.ObjectId(gameId) : gameId,
+    };
+    return await this.progressModel.findOne(query)
       .populate('gameId')
       .exec();
   }

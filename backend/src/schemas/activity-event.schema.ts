@@ -1,12 +1,16 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export type ActivityEventDocument = ActivityEvent & Document;
 
-@Schema({ timestamps: true })
+@Schema({
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+})
 export class ActivityEvent {
-  @Prop({ required: true })
-  childId: string;
+  @Prop({ type: Types.ObjectId, ref: 'ChildProfile', required: true })
+  childId: Types.ObjectId;
 
   @Prop({ required: true })
   eventType: string; // 'game_start', 'game_complete', 'login', 'logout', etc.
@@ -14,8 +18,8 @@ export class ActivityEvent {
   @Prop({ type: Object })
   metadata: Record<string, any>;
 
-  @Prop()
-  gameId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'Game' })
+  gameId?: Types.ObjectId;
 
   @Prop()
   score?: number;

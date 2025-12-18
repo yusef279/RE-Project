@@ -15,7 +15,11 @@ export enum GameCategory {
     CREATIVE = 'creative',
 }
 
-@Schema({ timestamps: true })
+@Schema({
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+})
 export class Game extends Document {
     @Prop({ required: true })
     title: string;

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { ChildProfile } from '../schemas/child-profile.schema';
 import { ParentProfile } from '../schemas/parent-profile.schema';
 import { Consent, ConsentStatus } from '../schemas/consent.schema';
@@ -34,13 +34,28 @@ export class ParentService {
   }
 
   async getChildren(parentId: string) {
-    return await this.childModel.find({ parentId })
+    console.log('DEBUG: ParentService.getChildren searching for parentId:', parentId);
+
+    // Explicitly cast to ObjectId if it's a valid string
+    const query = Types.ObjectId.isValid(parentId)
+      ? { parentId: new Types.ObjectId(parentId) }
+      : { parentId };
+
+    const children = await this.childModel.find(query)
       .sort({ createdAt: -1 })
       .exec();
+
+    console.log(`DEBUG: Real children found in DB: ${children.length}`);
+
+    return children;
   }
 
   async getChild(parentId: string, childId: string) {
-    const child = await this.childModel.findOne({ _id: childId, parentId }).exec();
+    const query = {
+      _id: Types.ObjectId.isValid(childId) ? new Types.ObjectId(childId) : childId,
+      parentId: Types.ObjectId.isValid(parentId) ? new Types.ObjectId(parentId) : parentId,
+    };
+    const child = await this.childModel.findOne(query).exec();
 
     if (!child) {
       throw new NotFoundException('Child not found');
@@ -50,7 +65,11 @@ export class ParentService {
   }
 
   async getPendingConsents(parentId: string) {
-    return await this.consentModel.find({ parentId, status: ConsentStatus.PENDING })
+    const query = {
+      parentId: Types.ObjectId.isValid(parentId) ? new Types.ObjectId(parentId) : parentId,
+      status: ConsentStatus.PENDING
+    };
+    return await this.consentModel.find(query)
       .populate('teacherId')
       .populate('childId')
       .populate('classroomId')
@@ -59,7 +78,10 @@ export class ParentService {
   }
 
   async getAllConsents(parentId: string) {
-    return await this.consentModel.find({ parentId })
+    const query = {
+      parentId: Types.ObjectId.isValid(parentId) ? new Types.ObjectId(parentId) : parentId,
+    };
+    return await this.consentModel.find(query)
       .populate('teacherId')
       .populate('childId')
       .populate('classroomId')

@@ -27,6 +27,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     // Always fetch fresh profileId from DB to avoid stale sessions after re-seeding
     const profileId = await this.authService.getProfileId(payload.sub, payload.role);
+    console.log(`DEBUG: JwtStrategy resolved profileId: ${profileId} for user ${payload.email} (${payload.role})`);
 
     return {
       userId: payload.sub,

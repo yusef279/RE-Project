@@ -322,13 +322,12 @@ export default function ParentDashboard() {
                 {alerts.map((alert) => (
                   <div
                     key={alert._id}
-                    className={`p-4 rounded-lg border-l-4 ${
-                      alert.severity === 'critical'
-                        ? 'bg-red-50 border-red-500'
-                        : alert.severity === 'warning'
+                    className={`p-4 rounded-lg border-l-4 ${alert.severity === 'critical'
+                      ? 'bg-red-50 border-red-500'
+                      : alert.severity === 'warning'
                         ? 'bg-yellow-50 border-yellow-500'
                         : 'bg-blue-50 border-blue-500'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3 flex-1">
@@ -364,15 +363,16 @@ export default function ParentDashboard() {
           ) : (
             <div className="space-y-8">
               <section>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-2xl font-bold text-gray-900">My Children</h2>
+                <div className="flex justify-between items-center mb-8">
+                  <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">My Children</h1>
                   <button
                     onClick={() => setShowAddChild(!showAddChild)}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-semibold shadow-lg shadow-indigo-200 transition-all flex items-center gap-2"
                   >
                     Add Child
                   </button>
                 </div>
+
 
                 {showAddChild && (
                   <form onSubmit={handleAddChild} className="bg-white p-4 rounded-lg shadow mb-4">
@@ -413,7 +413,7 @@ export default function ParentDashboard() {
 
                 {children.length === 0 ? (
                   <div className="bg-white p-8 rounded-lg shadow text-center text-gray-500">
-                    No children added yet. Click "Add Child" to get started.
+                    No children added yet (Current State Length: {children.length}). Click "Add Child" to get started.
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4">

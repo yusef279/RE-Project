@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { ActivityEvent, ActivityEventDocument } from '../schemas/activity-event.schema';
 import { CreateActivityEventDto } from './dto/create-activity-event.dto';
 
@@ -9,7 +9,7 @@ export class ActivityService {
   constructor(
     @InjectModel(ActivityEvent.name)
     private activityEventModel: Model<ActivityEventDocument>,
-  ) {}
+  ) { }
 
   async logActivity(
     createActivityEventDto: CreateActivityEventDto,
@@ -26,8 +26,11 @@ export class ActivityService {
   }
 
   async getChildActivities(childId: string, limit: number = 50) {
+    const query = {
+      childId: Types.ObjectId.isValid(childId) ? new Types.ObjectId(childId) : childId
+    };
     return await this.activityEventModel
-      .find({ childId })
+      .find(query)
       .sort({ createdAt: -1 })
       .limit(limit)
       .exec();
@@ -38,15 +41,22 @@ export class ActivityService {
     eventType: string,
     limit: number = 50,
   ) {
+    const query = {
+      childId: Types.ObjectId.isValid(childId) ? new Types.ObjectId(childId) : childId,
+      eventType
+    };
     return await this.activityEventModel
-      .find({ childId, eventType })
+      .find(query)
       .sort({ createdAt: -1 })
       .limit(limit)
       .exec();
   }
 
   async getActivityStats(childId: string) {
-    const activities = await this.activityEventModel.find({ childId }).exec();
+    const query = {
+      childId: Types.ObjectId.isValid(childId) ? new Types.ObjectId(childId) : childId
+    };
+    const activities = await this.activityEventModel.find(query as any).exec();
 
     const stats = {
       totalActivities: activities.length,
@@ -81,6 +91,9 @@ export class ActivityService {
   }
 
   async deleteChildActivities(childId: string): Promise<any> {
-    return await this.activityEventModel.deleteMany({ childId }).exec();
+    const query = {
+      childId: Types.ObjectId.isValid(childId) ? new Types.ObjectId(childId) : childId
+    };
+    return await this.activityEventModel.deleteMany(query as any).exec();
   }
 }

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Badge } from '../schemas/badge.schema';
 import { ChildBadge } from '../schemas/child-badge.schema';
 import { ChildProfile } from '../schemas/child-profile.schema';
@@ -26,14 +26,18 @@ export class RewardsService {
   }
 
   async getChildBadges(childId: string) {
-    return await this.childBadgeModel.find({ childId })
+    const query = {
+      childId: Types.ObjectId.isValid(childId) ? new Types.ObjectId(childId) : childId
+    };
+    return await this.childBadgeModel.find(query)
       .populate('badgeId')
       .sort({ earnedAt: -1 })
       .exec();
   }
 
   async checkAndAwardBadges(childId: string) {
-    const child = await this.childModel.findById(childId).exec();
+    const queryId = Types.ObjectId.isValid(childId) ? new Types.ObjectId(childId) : childId;
+    const child = await this.childModel.findById(queryId).exec();
     if (!child) {
       return [];
     }
@@ -111,7 +115,11 @@ export class RewardsService {
   }
 
   async awardCustomBadge(childId: string, badgeId: string) {
-    const existing = await this.childBadgeModel.findOne({ childId, badgeId }).exec();
+    const query = {
+      childId: Types.ObjectId.isValid(childId) ? new Types.ObjectId(childId) : childId,
+      badgeId: Types.ObjectId.isValid(badgeId) ? new Types.ObjectId(badgeId) : badgeId,
+    };
+    const existing = await this.childBadgeModel.findOne(query).exec();
 
     if (existing) {
       return existing;

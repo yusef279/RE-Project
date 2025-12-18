@@ -136,21 +136,19 @@ export default function ClassroomDetailPage() {
             <div className="flex gap-8">
               <button
                 onClick={() => setActiveTab('overview')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'overview'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'overview'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 Overview & Analytics
               </button>
               <button
                 onClick={() => setActiveTab('leaderboard')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'leaderboard'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'leaderboard'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 Leaderboard
               </button>
@@ -256,21 +254,19 @@ export default function ClassroomDetailPage() {
                     {leaderboard.map((entry) => (
                       <div
                         key={entry.childId}
-                        className={`flex items-center justify-between p-4 rounded-lg ${
-                          entry.rank === 1
-                            ? 'bg-gradient-to-r from-yellow-100 to-yellow-200 border-2 border-yellow-400'
-                            : entry.rank === 2
+                        className={`flex items-center justify-between p-4 rounded-lg ${entry.rank === 1
+                          ? 'bg-gradient-to-r from-yellow-100 to-yellow-200 border-2 border-yellow-400'
+                          : entry.rank === 2
                             ? 'bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-400'
                             : entry.rank === 3
-                            ? 'bg-gradient-to-r from-orange-100 to-orange-200 border-2 border-orange-400'
-                            : 'bg-gray-50'
-                        }`}
+                              ? 'bg-gradient-to-r from-orange-100 to-orange-200 border-2 border-orange-400'
+                              : 'bg-gray-50'
+                          }`}
                       >
                         <div className="flex items-center gap-4">
                           <span
-                            className={`text-2xl font-bold ${
-                              entry.rank <= 3 ? 'text-gray-700' : 'text-gray-400'
-                            }`}
+                            className={`text-2xl font-bold ${entry.rank <= 3 ? 'text-gray-700' : 'text-gray-400'
+                              }`}
                           >
                             #{entry.rank}
                           </span>
