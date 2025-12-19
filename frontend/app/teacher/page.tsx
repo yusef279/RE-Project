@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { ProtectedRoute } from '@/components/protected-route';
+import { TeacherConsentManager } from '@/components/teacher-consent';
 import apiClient from '@/lib/api-client';
 
 interface Classroom {
@@ -257,19 +258,13 @@ export default function TeacherDashboard() {
               </section>
 
               <section>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    Request Parent Consent
-                  </h2>
-                  <button
-                    onClick={() => setShowRequestConsent(!showRequestConsent)}
-                    className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700"
-                  >
-                    New Request
-                  </button>
-                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                  Request Parent Consent
+                </h2>
 
-                {showRequestConsent && (
+                <TeacherConsentManager />
+
+                {false && (
                   <form onSubmit={handleRequestConsent} className="bg-white p-4 rounded-lg shadow mb-4">
                     <p className="text-sm text-gray-600 mb-4">
                       Note: In production, you would have a UI to search/select parents and children.

@@ -17,7 +17,11 @@ interface ActivityEvent {
   childId: string;
   eventType: string;
   metadata: Record<string, any>;
-  timestamp: string;
+  score?: number;
+  duration?: number;
+  gameId?: string;
+  createdAt: string;
+  timestamp?: string;
 }
 
 interface Threat {
@@ -65,7 +69,7 @@ export default function ActivityMonitoringPage() {
 
       const [childRes, activitiesRes, threatsRes, safetyRes] = await Promise.all([
         apiClient.get(`/api/parent/children/${childId}`),
-        apiClient.get(`/api/activity/${childId}?limit=50`),
+        apiClient.get(`/api/activity/child/${childId}?limit=50`),
         apiClient.get(`/api/protection/threats/child/${childId}`),
         apiClient.get(`/api/protection/safety-rules/${childId}`).catch(() => ({ data: null })),
       ]);
@@ -83,9 +87,15 @@ export default function ActivityMonitoringPage() {
 
   const getEventIcon = (eventType: string) => {
     switch (eventType) {
-      case 'game_started':
+      case 'launcher_open':
+        return '🚀';
+      case 'launcher_exit':
+        return '👋';
+      case 'activity_click':
+        return '👆';
+      case 'game_start':
         return '🎮';
-      case 'game_completed':
+      case 'game_complete':
         return '✅';
       case 'badge_earned':
         return '🏆';
@@ -100,12 +110,18 @@ export default function ActivityMonitoringPage() {
 
   const getEventDescription = (event: ActivityEvent) => {
     switch (event.eventType) {
-      case 'game_started':
-        return `Started playing ${event.metadata.gameTitle || 'a game'}`;
-      case 'game_completed':
-        return `Completed ${event.metadata.gameTitle || 'a game'} - Score: ${event.metadata.score || 0}`;
+      case 'launcher_open':
+        return 'Opened child launcher';
+      case 'launcher_exit':
+        return 'Exited child launcher';
+      case 'activity_click':
+        return `Clicked on ${event.metadata?.activity || 'activity'}`;
+      case 'game_start':
+        return `Started playing ${event.metadata?.gameTitle || 'a game'}`;
+      case 'game_complete':
+        return `Completed ${event.metadata?.gameTitle || 'a game'} - Score: ${event.score || event.metadata?.score || 0}`;
       case 'badge_earned':
-        return `Earned badge: ${event.metadata.badgeName || 'Achievement'}`;
+        return `Earned badge: ${event.metadata?.badgeName || 'Achievement'}`;
       case 'login':
         return 'Logged in to the platform';
       case 'logout':
@@ -148,62 +164,67 @@ export default function ActivityMonitoringPage() {
 
   return (
     <ProtectedRoute allowedRoles={['parent']}>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50">
         {/* Header */}
-        <div className="bg-white shadow">
+        <div className="bg-gradient-to-r from-amber-600 to-orange-600 shadow-lg">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div className="flex items-center justify-between">
               <div>
                 <button
                   onClick={() => router.push('/parent')}
-                  className="text-sm text-gray-600 hover:text-gray-800 mb-2 flex items-center gap-1"
+                  className="text-sm text-amber-100 hover:text-white mb-2 flex items-center gap-1 font-semibold"
                 >
                   ← Back to Dashboard
                 </button>
-                <h1 className="text-3xl font-bold text-gray-900">Activity Monitor</h1>
-                <p className="text-gray-600 mt-1">
-                  {child.fullName} • Age {child.age} • {child.totalPoints} points
-                </p>
+                <div className="flex items-center gap-3">
+                  <span className="text-4xl">📊</span>
+                  <div>
+                    <h1 className="text-3xl font-bold text-white">Activity Monitor</h1>
+                    <p className="text-amber-100 mt-1">
+                      {child.fullName} • Age {child.age} • ⭐ {child.totalPoints} points
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-200 bg-white">
+        <div className="border-b-2 border-amber-200 bg-white shadow">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex gap-8">
               <button
                 onClick={() => setActiveTab('timeline')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                className={`py-4 px-1 border-b-4 font-semibold text-sm transition-colors ${
                   activeTab === 'timeline'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-amber-500 text-amber-900'
+                    : 'border-transparent text-gray-500 hover:text-amber-700 hover:border-amber-300'
                 }`}
               >
                 📋 Activity Timeline
               </button>
               <button
                 onClick={() => setActiveTab('threats')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                className={`py-4 px-1 border-b-4 font-semibold text-sm transition-colors ${
                   activeTab === 'threats'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-amber-500 text-amber-900'
+                    : 'border-transparent text-gray-500 hover:text-amber-700 hover:border-amber-300'
                 }`}
               >
                 🛡️ Security Threats
                 {threats.filter((t) => t.status === 'open').length > 0 && (
-                  <span className="ml-2 px-2 py-1 bg-red-500 text-white text-xs rounded-full">
+                  <span className="ml-2 px-2 py-1 bg-red-500 text-white text-xs rounded-full animate-pulse">
                     {threats.filter((t) => t.status === 'open').length}
                   </span>
                 )}
               </button>
               <button
                 onClick={() => setActiveTab('safety')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                className={`py-4 px-1 border-b-4 font-semibold text-sm transition-colors ${
                   activeTab === 'safety'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-amber-500 text-amber-900'
+                    : 'border-transparent text-gray-500 hover:text-amber-700 hover:border-amber-300'
                 }`}
               >
                 ⚙️ Safety Settings
@@ -215,27 +236,34 @@ export default function ActivityMonitoringPage() {
         {/* Content */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {activeTab === 'timeline' && (
-            <div className="bg-white rounded-lg shadow">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-900">Recent Activity</h2>
-                <p className="text-sm text-gray-600 mt-1">Last 50 events</p>
+            <div className="bg-white rounded-xl shadow-lg border-2 border-amber-200">
+              <div className="p-6 border-b-2 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
+                <h2 className="text-2xl font-bold text-amber-900">Recent Activity</h2>
+                <p className="text-sm text-amber-700 mt-1">Last 50 events</p>
               </div>
               <div className="p-6">
                 {activities.length === 0 ? (
-                  <p className="text-gray-500 italic text-center py-8">No activity recorded yet</p>
+                  <div className="text-center py-12">
+                    <div className="text-8xl mb-4">🏺</div>
+                    <p className="text-amber-700 text-lg italic">No activity recorded yet</p>
+                    <p className="text-amber-600 text-sm mt-2">Start playing games to see activity here!</p>
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     {activities.map((event) => (
                       <div
                         key={event._id}
-                        className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                        className="flex items-start gap-4 p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl hover:from-amber-100 hover:to-orange-100 transition-all border-2 border-amber-200"
                       >
-                        <span className="text-3xl">{getEventIcon(event.eventType)}</span>
+                        <span className="text-4xl">{getEventIcon(event.eventType)}</span>
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">{getEventDescription(event)}</p>
-                          <p className="text-sm text-gray-500 mt-1">
-                            {new Date(event.timestamp).toLocaleString()}
+                          <p className="font-semibold text-amber-900">{getEventDescription(event)}</p>
+                          <p className="text-sm text-amber-700 mt-1">
+                            {new Date(event.createdAt || event.timestamp || new Date()).toLocaleString()}
                           </p>
+                          {event.duration && (
+                            <p className="text-xs text-amber-600 mt-1 font-medium">⏱️ Duration: {Math.floor(event.duration / 60)}m {event.duration % 60}s</p>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -246,16 +274,17 @@ export default function ActivityMonitoringPage() {
           )}
 
           {activeTab === 'threats' && (
-            <div className="bg-white rounded-lg shadow">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-900">Security Threats</h2>
-                <p className="text-sm text-gray-600 mt-1">Detected security incidents</p>
+            <div className="bg-white rounded-xl shadow-lg border-2 border-amber-200">
+              <div className="p-6 border-b-2 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
+                <h2 className="text-2xl font-bold text-amber-900">🛡️ Security Threats</h2>
+                <p className="text-sm text-amber-700 mt-1">Detected security incidents</p>
               </div>
               <div className="p-6">
                 {threats.length === 0 ? (
-                  <div className="text-center py-8">
-                    <span className="text-6xl">✅</span>
-                    <p className="text-gray-500 mt-4">No threats detected - All clear!</p>
+                  <div className="text-center py-12">
+                    <span className="text-8xl">✅</span>
+                    <p className="text-amber-900 text-xl font-bold mt-4">No threats detected</p>
+                    <p className="text-amber-700 text-sm mt-2">All clear! Your child is safe.</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -319,19 +348,19 @@ export default function ActivityMonitoringPage() {
           )}
 
           {activeTab === 'safety' && (
-            <div className="bg-white rounded-lg shadow">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-900">Safety Settings</h2>
-                <p className="text-sm text-gray-600 mt-1">
+            <div className="bg-white rounded-xl shadow-lg border-2 border-amber-200">
+              <div className="p-6 border-b-2 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
+                <h2 className="text-2xl font-bold text-amber-900">⚙️ Safety Settings</h2>
+                <p className="text-sm text-amber-700 mt-1">
                   Current protection rules for {child.fullName}
                 </p>
               </div>
               <div className="p-6 space-y-6">
                 {/* Time Restrictions */}
-                <div className="border-l-4 border-indigo-500 bg-indigo-50 p-4 rounded">
-                  <h3 className="font-semibold text-gray-900 mb-2">⏰ Time Restrictions</h3>
+                <div className="border-l-4 border-amber-500 bg-amber-50 p-4 rounded-xl">
+                  <h3 className="font-bold text-amber-900 mb-2">⏰ Time Restrictions</h3>
                   {safetyRules?.timeRestrictions?.enabled ? (
-                    <div className="text-sm text-gray-700 space-y-1">
+                    <div className="text-sm text-amber-800 space-y-1 font-medium">
                       <p>
                         • Allowed time:{' '}
                         {safetyRules.timeRestrictions.weekdayStart || 'Not set'} -{' '}
@@ -343,13 +372,13 @@ export default function ActivityMonitoringPage() {
                       </p>
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-600 italic">No time restrictions set</p>
+                    <p className="text-sm text-amber-700 italic">No time restrictions set</p>
                   )}
                 </div>
 
                 {/* Blocked Keywords */}
-                <div className="border-l-4 border-red-500 bg-red-50 p-4 rounded">
-                  <h3 className="font-semibold text-gray-900 mb-2">🚫 Blocked Keywords</h3>
+                <div className="border-l-4 border-red-500 bg-red-50 p-4 rounded-xl">
+                  <h3 className="font-bold text-red-900 mb-2">🚫 Blocked Keywords</h3>
                   {safetyRules?.blockedKeywords && safetyRules.blockedKeywords.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {safetyRules.blockedKeywords.map((keyword, index) => (
@@ -367,26 +396,25 @@ export default function ActivityMonitoringPage() {
                 </div>
 
                 {/* Blocked URLs */}
-                <div className="border-l-4 border-yellow-500 bg-yellow-50 p-4 rounded">
-                  <h3 className="font-semibold text-gray-900 mb-2">🌐 Blocked URLs</h3>
+                <div className="border-l-4 border-yellow-500 bg-yellow-50 p-4 rounded-xl">
+                  <h3 className="font-bold text-yellow-900 mb-2">🌐 Blocked URLs</h3>
                   {safetyRules?.blockedUrls && safetyRules.blockedUrls.length > 0 ? (
                     <div className="space-y-1">
                       {safetyRules.blockedUrls.map((url, index) => (
-                        <p key={index} className="text-sm text-gray-700">
+                        <p key={index} className="text-sm text-yellow-800 font-medium">
                           • {url}
                         </p>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-600 italic">No blocked URLs</p>
+                    <p className="text-sm text-yellow-700 italic">No blocked URLs</p>
                   )}
                 </div>
 
                 {/* Note */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">
-                    💡 <strong>Note:</strong> To update safety settings, please contact support or
-                    use the safety configuration panel.
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
+                  <p className="text-sm text-amber-900 font-medium">
+                    💡 <strong>Tip:</strong> To update safety settings, use the 🛡️ Safety button on the main dashboard.
                   </p>
                 </div>
               </div>

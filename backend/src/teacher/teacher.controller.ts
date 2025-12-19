@@ -114,4 +114,9 @@ export class TeacherController {
   async getConsents(@CurrentUser() user: any) {
     return this.teacherService.getConsents(user.profileId);
   }
+
+  @Get('parents')
+  async getAllParents() {
+    return this.teacherService.getAllParents();
+  }
 }

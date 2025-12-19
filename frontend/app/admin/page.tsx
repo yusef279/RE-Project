@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { ProtectedRoute } from '@/components/protected-route';
+import { AdminConsentManager } from '@/components/admin-consent';
 import apiClient from '@/lib/api-client';
 
 interface SystemStats {
@@ -50,7 +51,7 @@ export default function AdminDashboard() {
   const [threats, setThreats] = useState<ThreatOverview | null>(null);
   const [popularGames, setPopularGames] = useState<PopularGame[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'threats' | 'games'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'threats' | 'games' | 'consent'>('overview');
 
   useEffect(() => {
     fetchDashboardData();
@@ -153,6 +154,16 @@ export default function AdminDashboard() {
                 }`}
               >
                 Popular Games
+              </button>
+              <button
+                onClick={() => setActiveTab('consent')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'consent'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Request Consent
               </button>
             </div>
           </div>
@@ -356,6 +367,8 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+
+          {activeTab === 'consent' && <AdminConsentManager />}
         </main>
       </div>
     </ProtectedRoute>

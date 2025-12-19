@@ -5,6 +5,7 @@ import { Classroom } from '../schemas/classroom.schema';
 import { ClassroomStudent } from '../schemas/classroom-student.schema';
 import { TeacherProfile } from '../schemas/teacher-profile.schema';
 import { ChildProfile } from '../schemas/child-profile.schema';
+import { ParentProfile } from '../schemas/parent-profile.schema';
 import { GameProgress } from '../schemas/game-progress.schema';
 import { Consent, ConsentStatus, ConsentType } from '../schemas/consent.schema';
 import { Assignment } from '../schemas/assignment.schema';
@@ -24,6 +25,8 @@ export class TeacherService {
     private teacherProfileModel: Model<TeacherProfile>,
     @InjectModel(ChildProfile.name)
     private childModel: Model<ChildProfile>,
+    @InjectModel(ParentProfile.name)
+    private parentProfileModel: Model<ParentProfile>,
     @InjectModel(GameProgress.name)
     private progressModel: Model<GameProgress>,
     @InjectModel(Consent.name)
@@ -294,11 +297,71 @@ export class TeacherService {
   }
 
   async getConsents(teacherId: string) {
-    return await this.consentModel.find({ teacherId })
-      .populate('parentId')
+    const consents = await this.consentModel.find({ teacherId })
+      .populate({
+        path: 'parentId',
+        populate: {
+          path: 'userId',
+          select: 'email'
+        }
+      })
       .populate('childId')
       .populate('classroomId')
       .sort({ createdAt: -1 })
       .exec();
+
+    // Transform the data to match frontend expectations
+    return consents.map(consent => {
+      const consentObj = consent.toObject();
+      return {
+        id: consentObj._id.toString(),
+        type: consentObj.type,
+        status: consentObj.status,
+        message: consentObj.message,
+        parent: consentObj.parentId ? {
+          fullName: consentObj.parentId.fullName,
+          user: {
+            email: consentObj.parentId.userId?.email || ''
+          }
+        } : null,
+        child: consentObj.childId ? {
+          fullName: consentObj.childId.fullName
+        } : null,
+        classroom: consentObj.classroomId ? {
+          name: consentObj.classroomId.name
+        } : null,
+        createdAt: consentObj.createdAt
+      };
+    });
+  }
+
+  async getAllParents() {
+    const parents = await this.parentProfileModel
+      .find()
+      .populate('userId', 'email')
+      .exec();
+
+    const parentsWithChildren = await Promise.all(
+      parents.map(async (parent) => {
+        const children = await this.childModel
+          .find({ parentId: parent._id })
+          .select('fullName age totalPoints')
+          .exec();
+
+        return {
+          _id: parent._id,
+          fullName: parent.fullName,
+          email: parent.userId?.['email'],
+          children: children.map((child) => ({
+            _id: child._id,
+            fullName: child.fullName,
+            age: child.age,
+            totalPoints: child.totalPoints,
+          })),
+        };
+      }),
+    );
+
+    return parentsWithChildren;
   }
 }

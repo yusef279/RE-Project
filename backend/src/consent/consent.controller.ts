@@ -44,6 +44,20 @@ export class ConsentController {
     return this.consentService.rejectConsent(consentId, user.profileId);
   }
 
+  @Get('admin/parents')
+  @Roles(UserRole.ADMIN)
+  async getAllParents() {
+    return this.consentService.getAllParents();
+  }
+
+  @Post('admin-request')
+  @Roles(UserRole.ADMIN)
+  async adminRequestConsent(
+    @Body() requestConsentDto: RequestConsentDto,
+  ) {
+    return this.consentService.adminRequestConsent(requestConsentDto);
+  }
+
   @Get(':id')
   @Roles(UserRole.PARENT, UserRole.TEACHER, UserRole.ADMIN)
   async getConsent(@CurrentUser() user: any, @Param('id') consentId: string) {

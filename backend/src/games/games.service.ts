@@ -174,8 +174,20 @@ export class GamesService {
       childId: Types.ObjectId.isValid(childId) ? new Types.ObjectId(childId) : childId,
       gameId: Types.ObjectId.isValid(gameId) ? new Types.ObjectId(gameId) : gameId,
     };
-    return await this.progressModel.findOne(query)
+    const progress = await this.progressModel.findOne(query)
       .populate('gameId')
       .exec();
+
+    // If no progress exists, return a default object instead of null
+    if (!progress) {
+      return {
+        id: '',
+        currentDifficulty: 'easy',
+        highScore: 0,
+        timesCompleted: 0,
+      };
+    }
+
+    return progress;
   }
 }

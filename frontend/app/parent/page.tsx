@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { ProtectedRoute } from '@/components/protected-route';
+import { Tutorial } from '@/components/tutorial';
 import apiClient from '@/lib/api-client';
 import Link from 'next/link';
 
@@ -68,6 +69,28 @@ interface Alert {
   createdAt: string;
 }
 
+interface ScreenTimeStatus {
+  isExceeded: boolean;
+  currentMinutes: number;
+  limitMinutes: number;
+  remainingMinutes: number;
+  shouldWarn: boolean;
+}
+
+interface SafetyRules {
+  childId: string;
+  timeRestrictions?: {
+    enabled: boolean;
+    weekdayStart?: string;
+    weekdayEnd?: string;
+    weekendStart?: string;
+    weekendEnd?: string;
+    maxDailyMinutes?: number;
+  };
+  blockedKeywords?: string[];
+  blockedUrls?: string[];
+}
+
 export default function ParentDashboard() {
   const { user, logout } = useAuth();
   const [children, setChildren] = useState<Child[]>([]);
@@ -83,6 +106,12 @@ export default function ParentDashboard() {
   const [expandedChildId, setExpandedChildId] = useState<string | null>(null);
   const [childProgress, setChildProgress] = useState<Record<string, GameProgress[]>>({});
   const [childBadges, setChildBadges] = useState<Record<string, Badge[]>>({});
+  const [screenTimeStatus, setScreenTimeStatus] = useState<Record<string, ScreenTimeStatus>>({});
+  const [safetyRules, setSafetyRules] = useState<Record<string, SafetyRules>>({});
+  const [showSafetySettings, setShowSafetySettings] = useState<string | null>(null);
+  const [editingSafetyRules, setEditingSafetyRules] = useState<SafetyRules | null>(null);
+  const [leaderboard, setLeaderboard] = useState<Array<{ rank: number; childId: string; childName: string; totalPoints: number }>>([]);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -122,14 +151,27 @@ export default function ParentDashboard() {
   const handleAddChild = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient.post('/api/parent/children', newChild);
+      // Ensure age is a valid number
+      const childData = {
+        fullName: newChild.fullName.trim(),
+        age: Number(newChild.age),
+      };
+
+      // Validate age is within bounds
+      if (childData.age < 3 || childData.age > 12 || isNaN(childData.age)) {
+        showError('Age must be between 3 and 12 years.');
+        return;
+      }
+
+      await apiClient.post('/api/parent/children', childData);
       setNewChild({ fullName: '', age: 7 });
       setShowAddChild(false);
-      showSuccess(`🎉 ${newChild.fullName} has been added successfully!`);
+      showSuccess(`🎉 ${childData.fullName} has been added successfully!`);
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to add child:', error);
-      showError('Failed to add child. Please try again.');
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to add child. Please try again.';
+      showError(errorMsg);
     }
   };
 
@@ -164,7 +206,7 @@ export default function ParentDashboard() {
     try {
       setExpandedChildId(childId);
 
-      // Fetch progress and badges if not already loaded
+      // Fetch progress, badges, and screen time if not already loaded
       if (!childProgress[childId]) {
         const [progressRes, badgesRes] = await Promise.all([
           apiClient.get(`/api/games/progress/${childId}`),
@@ -174,6 +216,9 @@ export default function ParentDashboard() {
         setChildProgress((prev) => ({ ...prev, [childId]: progressRes.data }));
         setChildBadges((prev) => ({ ...prev, [childId]: badgesRes.data }));
       }
+
+      // Always fetch screen time status (it changes frequently)
+      await fetchScreenTimeStatus(childId);
     } catch (error) {
       console.error('Failed to fetch child details:', error);
       showError('Failed to load child details.');
@@ -203,6 +248,103 @@ export default function ParentDashboard() {
     } catch (error) {
       console.error('Failed to download report:', error);
       showError('Failed to generate report. Please try again.');
+    }
+  };
+
+  const fetchScreenTimeStatus = async (childId: string) => {
+    try {
+      const response = await apiClient.get(`/api/protection/screen-time-status/${childId}`);
+      setScreenTimeStatus((prev) => ({ ...prev, [childId]: response.data }));
+    } catch (error) {
+      console.error('Failed to fetch screen time:', error);
+    }
+  };
+
+  const fetchSafetyRules = async (childId: string) => {
+    try {
+      const response = await apiClient.get(`/api/protection/safety-rules/${childId}`);
+      setSafetyRules((prev) => ({ ...prev, [childId]: response.data }));
+      return response.data;
+    } catch (error) {
+      // Return default rules if none exist
+      const defaultRules: SafetyRules = {
+        childId,
+        timeRestrictions: {
+          enabled: false,
+          weekdayStart: '08:00',
+          weekdayEnd: '20:00',
+          weekendStart: '09:00',
+          weekendEnd: '21:00',
+          maxDailyMinutes: 120,
+        },
+        blockedKeywords: [],
+        blockedUrls: [],
+      };
+      setSafetyRules((prev) => ({ ...prev, [childId]: defaultRules }));
+      return defaultRules;
+    }
+  };
+
+  const openSafetySettings = async (childId: string) => {
+    const rules = await fetchSafetyRules(childId);
+    setEditingSafetyRules(rules || {
+      childId,
+      timeRestrictions: {
+        enabled: false,
+        weekdayStart: '08:00',
+        weekdayEnd: '20:00',
+        weekendStart: '09:00',
+        weekendEnd: '21:00',
+        maxDailyMinutes: 120,
+      },
+      blockedKeywords: [],
+      blockedUrls: [],
+    });
+    setShowSafetySettings(childId);
+  };
+
+  const saveSafetyRules = async () => {
+    if (!editingSafetyRules) return;
+
+    try {
+      await apiClient.post('/api/protection/safety-rules', editingSafetyRules);
+      setSafetyRules((prev) => ({ ...prev, [editingSafetyRules.childId]: editingSafetyRules }));
+      setShowSafetySettings(null);
+      setEditingSafetyRules(null);
+      showSuccess('🛡️ Safety settings saved successfully!');
+    } catch (error) {
+      console.error('Failed to save safety rules:', error);
+      showError('Failed to save safety settings. Please try again.');
+    }
+  };
+
+  const formatMinutes = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours === 0) return `${mins}m`;
+    if (mins === 0) return `${hours}h`;
+    return `${hours}h ${mins}m`;
+  };
+
+  const fetchLeaderboard = async () => {
+    try {
+      const response = await apiClient.get('/api/games/leaderboard/global?limit=10');
+      const data = response.data;
+
+      // Map backend field names to frontend expectations
+      const mapped = data.map((entry: any, index: number) => ({
+        rank: entry.rank || index + 1,
+        childId: '', // Not provided by backend for privacy
+        childName: entry.displayName,
+        totalPoints: entry.points,
+        isMyChild: entry.isCurrentChild || false,
+      }));
+
+      setLeaderboard(mapped);
+      setShowLeaderboard(true);
+    } catch (error) {
+      console.error('Failed to fetch leaderboard:', error);
+      showError('Failed to load leaderboard.');
     }
   };
 
@@ -249,34 +391,81 @@ export default function ParentDashboard() {
     return child?.fullName || 'Unknown Child';
   };
 
+  const tutorialSteps = [
+    {
+      title: 'Welcome to Play, Learn & Protect! 🏺',
+      description: 'Your child\'s safe and educational Egyptian-themed platform. Let\'s take a quick tour!',
+      emoji: '🏺',
+    },
+    {
+      title: 'Add Your Children',
+      description: 'Click "Add Child" to register your children. Each child gets their own profile with points and progress tracking.',
+      emoji: '👨‍👩‍👧‍👦',
+    },
+    {
+      title: 'Launch Games',
+      description: 'Click the 🚀 Launch button to let your child play Egyptian-themed educational games safely.',
+      emoji: '🎮',
+    },
+    {
+      title: 'Monitor Activity',
+      description: 'View detailed activity logs, screen time, and security alerts using the 📊 Activity button.',
+      emoji: '📊',
+    },
+    {
+      title: 'Safety First',
+      description: 'Set time limits, block keywords, and configure safety rules with the 🛡️ Safety button.',
+      emoji: '🛡️',
+    },
+    {
+      title: 'View Progress & Leaderboard',
+      description: 'Check your child\'s game progress, badges earned, and see how they rank on the global leaderboard! 🏆',
+      emoji: '⭐',
+    },
+  ];
+
   return (
     <ProtectedRoute allowedRoles={['parent']}>
-      <div className="min-h-screen bg-gray-50">
-        <nav className="bg-white shadow">
+      <Tutorial
+        steps={tutorialSteps}
+        storageKey="parent-dashboard-tutorial-seen"
+      />
+      <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50">
+        <nav className="bg-gradient-to-r from-amber-600 to-orange-600 shadow-lg">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16">
-              <div className="flex items-center">
-                <h1 className="text-xl font-bold text-indigo-600">
-                  Play, Learn & Protect
-                </h1>
-                <span className="ml-4 text-sm text-gray-600">Parent Dashboard</span>
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">🏺</span>
+                <div>
+                  <h1 className="text-xl font-bold text-white">
+                    Play, Learn & Protect
+                  </h1>
+                  <span className="text-xs text-amber-100">Parent Dashboard</span>
+                </div>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={fetchLeaderboard}
+                  className="p-2 text-white hover:text-amber-200 transition-colors"
+                  title="View Leaderboard"
+                >
+                  <span className="text-2xl">🏆</span>
+                </button>
                 <button
                   onClick={() => setShowAlerts(!showAlerts)}
-                  className="relative p-2 text-gray-600 hover:text-indigo-600 transition-colors"
+                  className="relative p-2 text-white hover:text-amber-200 transition-colors"
                 >
                   <span className="text-2xl">🔔</span>
                   {unreadAlertCount > 0 && (
-                    <span className="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                    <span className="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
                       {unreadAlertCount}
                     </span>
                   )}
                 </button>
-                <span className="text-sm text-gray-700">{user?.email}</span>
+                <span className="text-sm text-amber-100 hidden sm:inline">{user?.email}</span>
                 <button
                   onClick={logout}
-                  className="text-sm text-red-600 hover:text-red-700"
+                  className="text-sm bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-colors"
                 >
                   Logout
                 </button>
@@ -364,12 +553,14 @@ export default function ParentDashboard() {
             <div className="space-y-8">
               <section>
                 <div className="flex justify-between items-center mb-8">
-                  <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">My Children</h1>
+                  <h1 className="text-3xl font-extrabold text-amber-900 tracking-tight flex items-center gap-3">
+                    <span className="text-4xl">👨‍👩‍👧‍👦</span> My Children
+                  </h1>
                   <button
                     onClick={() => setShowAddChild(!showAddChild)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-semibold shadow-lg shadow-indigo-200 transition-all flex items-center gap-2"
+                    className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition-all flex items-center gap-2"
                   >
-                    Add Child
+                    ➕ Add Child
                   </button>
                 </div>
 
@@ -388,8 +579,8 @@ export default function ParentDashboard() {
                       <input
                         type="number"
                         placeholder="Age"
-                        value={newChild.age}
-                        onChange={(e) => setNewChild({ ...newChild, age: parseInt(e.target.value) })}
+                        value={newChild.age || ''}
+                        onChange={(e) => setNewChild({ ...newChild, age: parseInt(e.target.value) || 7 })}
                         min={3}
                         max={12}
                         required
@@ -416,46 +607,88 @@ export default function ParentDashboard() {
                     No children added yet (Current State Length: {children.length}). Click "Add Child" to get started.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-4">
+                  <div className="grid grid-cols-1 gap-6">
                     {children.map((child) => {
                       const isExpanded = expandedChildId === child.id;
                       const progress = childProgress[child.id] || [];
                       const badges = childBadges[child.id] || [];
+                      const screenTime = screenTimeStatus[child.id];
 
                       return (
-                        <div key={child.id} className="bg-white rounded-lg shadow-lg overflow-hidden">
+                        <div key={child.id} className="bg-white rounded-xl shadow-lg overflow-hidden border-2 border-amber-200">
                           {/* Child Header */}
-                          <div className="p-6">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <h3 className="text-xl font-semibold text-gray-900">{child.fullName}</h3>
-                                <p className="text-sm text-gray-600">Age: {child.age}</p>
-                                <p className="text-lg font-bold text-indigo-600 mt-1">⭐ {child.totalPoints} Points</p>
+                          <div className="p-6 bg-gradient-to-r from-amber-50 to-orange-50">
+                            <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
+                              <div className="flex items-center gap-4">
+                                <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center text-3xl shadow-lg">
+                                  {child.age <= 5 ? '👶' : child.age <= 8 ? '🧒' : '👦'}
+                                </div>
+                                <div>
+                                  <h3 className="text-2xl font-bold text-amber-900">{child.fullName}</h3>
+                                  <p className="text-sm text-amber-700">
+                                    Age {child.age} • {child.age <= 5 ? 'Explorer' : child.age <= 8 ? 'Adventurer' : 'Champion'}
+                                  </p>
+                                  <p className="text-lg font-bold text-amber-600 mt-1">⭐ {child.totalPoints} Points</p>
+                                </div>
                               </div>
+
+                              {/* Screen Time Status */}
+                              {screenTime && (
+                                <div className={`px-4 py-3 rounded-xl ${screenTime.isExceeded
+                                    ? 'bg-red-100 border-2 border-red-400'
+                                    : screenTime.shouldWarn
+                                      ? 'bg-yellow-100 border-2 border-yellow-400'
+                                      : 'bg-green-100 border-2 border-green-400'
+                                  }`}>
+                                  <div className="text-center">
+                                    <p className="text-xs font-semibold text-gray-600 uppercase">Screen Time Today</p>
+                                    <p className={`text-2xl font-bold ${screenTime.isExceeded ? 'text-red-600' : screenTime.shouldWarn ? 'text-yellow-700' : 'text-green-600'
+                                      }`}>
+                                      {formatMinutes(screenTime.currentMinutes)}
+                                    </p>
+                                    <p className="text-xs text-gray-600">
+                                      of {formatMinutes(screenTime.limitMinutes)} limit
+                                    </p>
+                                    {screenTime.isExceeded && (
+                                      <p className="text-xs text-red-600 font-bold mt-1">⚠️ Limit exceeded!</p>
+                                    )}
+                                    {screenTime.shouldWarn && !screenTime.isExceeded && (
+                                      <p className="text-xs text-yellow-700 font-bold mt-1">⏰ {formatMinutes(screenTime.remainingMinutes)} remaining</p>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
                               <div className="flex gap-2 flex-wrap">
                                 <Link
                                   href={`/child-launcher/${child.id}`}
-                                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-lg font-semibold hover:from-purple-600 hover:to-pink-600 transition-all"
+                                  className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-3 rounded-xl font-semibold hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg"
                                 >
                                   🚀 Launch
                                 </Link>
                                 <Link
                                   href={`/parent/activity/${child.id}`}
-                                  className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all"
+                                  className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all shadow-lg"
                                 >
                                   📊 Activity
                                 </Link>
                                 <button
-                                  onClick={() => fetchChildDetails(child.id)}
-                                  className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all"
+                                  onClick={() => openSafetySettings(child.id)}
+                                  className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-all shadow-lg"
                                 >
-                                  {isExpanded ? '▼ Hide Stats' : '▶ View Stats'}
+                                  🛡️ Safety
+                                </button>
+                                <button
+                                  onClick={() => fetchChildDetails(child.id)}
+                                  className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all"
+                                >
+                                  {isExpanded ? '▼ Hide' : '▶ Stats'}
                                 </button>
                                 <button
                                   onClick={() => handleDownloadReport(child.id, child.fullName)}
-                                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all"
+                                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-lg"
                                 >
-                                  📄 Report
+                                  📄 PDF
                                 </button>
                               </div>
                             </div>
@@ -573,6 +806,290 @@ export default function ParentDashboard() {
                   </div>
                 </section>
               )}
+            </div>
+          )}
+
+          {/* Safety Settings Modal */}
+          {showSafetySettings && editingSafetyRules && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-t-2xl">
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-2xl font-bold">🛡️ Safety Settings</h2>
+                    <button
+                      onClick={() => {
+                        setShowSafetySettings(null);
+                        setEditingSafetyRules(null);
+                      }}
+                      className="text-white/80 hover:text-white text-2xl"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="text-indigo-100 mt-1">
+                    Configure screen time limits and content filters for {children.find(c => c.id === showSafetySettings)?.fullName}
+                  </p>
+                </div>
+
+                <div className="p-6 space-y-6">
+                  {/* Screen Time Controls */}
+                  <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-bold text-blue-900">⏰ Screen Time Limits</h3>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editingSafetyRules.timeRestrictions?.enabled || false}
+                          onChange={(e) => setEditingSafetyRules({
+                            ...editingSafetyRules,
+                            timeRestrictions: {
+                              ...editingSafetyRules.timeRestrictions!,
+                              enabled: e.target.checked,
+                            },
+                          })}
+                          className="w-5 h-5 rounded text-blue-600"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Enabled</span>
+                      </label>
+                    </div>
+
+                    {editingSafetyRules.timeRestrictions?.enabled && (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Daily Time Limit (minutes)
+                          </label>
+                          <input
+                            type="number"
+                            min={15}
+                            max={480}
+                            step={15}
+                            value={editingSafetyRules.timeRestrictions?.maxDailyMinutes || 120}
+                            onChange={(e) => setEditingSafetyRules({
+                              ...editingSafetyRules,
+                              timeRestrictions: {
+                                ...editingSafetyRules.timeRestrictions!,
+                                maxDailyMinutes: parseInt(e.target.value) || 120,
+                              },
+                            })}
+                            className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Current: {formatMinutes(editingSafetyRules.timeRestrictions?.maxDailyMinutes || 120)} per day
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                              Weekday Start Time
+                            </label>
+                            <input
+                              type="time"
+                              value={editingSafetyRules.timeRestrictions?.weekdayStart || '08:00'}
+                              onChange={(e) => setEditingSafetyRules({
+                                ...editingSafetyRules,
+                                timeRestrictions: {
+                                  ...editingSafetyRules.timeRestrictions!,
+                                  weekdayStart: e.target.value,
+                                },
+                              })}
+                              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                              Weekday End Time
+                            </label>
+                            <input
+                              type="time"
+                              value={editingSafetyRules.timeRestrictions?.weekdayEnd || '20:00'}
+                              onChange={(e) => setEditingSafetyRules({
+                                ...editingSafetyRules,
+                                timeRestrictions: {
+                                  ...editingSafetyRules.timeRestrictions!,
+                                  weekdayEnd: e.target.value,
+                                },
+                              })}
+                              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                              Weekend Start Time
+                            </label>
+                            <input
+                              type="time"
+                              value={editingSafetyRules.timeRestrictions?.weekendStart || '09:00'}
+                              onChange={(e) => setEditingSafetyRules({
+                                ...editingSafetyRules,
+                                timeRestrictions: {
+                                  ...editingSafetyRules.timeRestrictions!,
+                                  weekendStart: e.target.value,
+                                },
+                              })}
+                              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                              Weekend End Time
+                            </label>
+                            <input
+                              type="time"
+                              value={editingSafetyRules.timeRestrictions?.weekendEnd || '21:00'}
+                              onChange={(e) => setEditingSafetyRules({
+                                ...editingSafetyRules,
+                                timeRestrictions: {
+                                  ...editingSafetyRules.timeRestrictions!,
+                                  weekendEnd: e.target.value,
+                                },
+                              })}
+                              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Content Filters */}
+                  <div className="bg-red-50 rounded-xl p-4 border-2 border-red-200">
+                    <h3 className="text-lg font-bold text-red-900 mb-4">🚫 Content Filters</h3>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Blocked Keywords (comma-separated)
+                        </label>
+                        <textarea
+                          value={editingSafetyRules.blockedKeywords?.join(', ') || ''}
+                          onChange={(e) => setEditingSafetyRules({
+                            ...editingSafetyRules,
+                            blockedKeywords: e.target.value.split(',').map(k => k.trim()).filter(k => k),
+                          })}
+                          placeholder="e.g., violence, bad word, inappropriate"
+                          className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg h-20 resize-none"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Content containing these words will be flagged
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Blocked URLs (comma-separated)
+                        </label>
+                        <textarea
+                          value={editingSafetyRules.blockedUrls?.join(', ') || ''}
+                          onChange={(e) => setEditingSafetyRules({
+                            ...editingSafetyRules,
+                            blockedUrls: e.target.value.split(',').map(u => u.trim()).filter(u => u),
+                          })}
+                          placeholder="e.g., example.com, badsite.org"
+                          className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg h-20 resize-none"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          These URLs will be blocked from access
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-4 pt-4">
+                    <button
+                      onClick={saveSafetyRules}
+                      className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg"
+                    >
+                      💾 Save Settings
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowSafetySettings(null);
+                        setEditingSafetyRules(null);
+                      }}
+                      className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-xl transition-all"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Leaderboard Modal */}
+          {showLeaderboard && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-t-2xl">
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-2xl font-bold flex items-center gap-2">
+                      🏆 Global Leaderboard
+                    </h2>
+                    <button
+                      onClick={() => setShowLeaderboard(false)}
+                      className="text-white/80 hover:text-white text-2xl"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="text-amber-100 mt-1">Top players across all children</p>
+                </div>
+
+                <div className="p-6">
+                  {leaderboard.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="text-6xl mb-4">🏺</div>
+                      <p className="text-gray-600">No scores yet! Start playing to see the leaderboard.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {leaderboard.map((entry, index) => {
+                        const isMyChild = children.some(c => c.id === entry.childId);
+                        const rank = entry.rank || index + 1;
+                        const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+
+                        return (
+                          <div
+                            key={entry.childId}
+                            className={`flex items-center gap-4 p-4 rounded-xl ${isMyChild
+                                ? 'bg-gradient-to-r from-amber-100 to-orange-100 border-2 border-amber-400'
+                                : 'bg-gray-50 border border-gray-200'
+                              }`}
+                          >
+                            <div className={`text-2xl font-bold ${rank <= 3 ? 'text-3xl' : 'text-gray-500 w-10 text-center'}`}>
+                              {medal}
+                            </div>
+                            <div className="flex-1">
+                              <p className={`font-bold ${isMyChild ? 'text-amber-900' : 'text-gray-800'}`}>
+                                {entry.childName}
+                                {isMyChild && <span className="ml-2 text-xs bg-amber-500 text-white px-2 py-0.5 rounded-full">Your Child</span>}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className={`text-xl font-bold ${isMyChild ? 'text-amber-600' : 'text-gray-700'}`}>
+                                ⭐ {entry.totalPoints}
+                              </p>
+                              <p className="text-xs text-gray-500">points</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
+                    <p className="text-sm text-amber-800 text-center">
+                      🌟 Keep playing games to climb the leaderboard!
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </main>

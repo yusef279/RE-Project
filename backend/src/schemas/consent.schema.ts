@@ -27,7 +27,7 @@ export class Consent extends Document {
     @Prop({ type: Types.ObjectId, ref: 'ParentProfile', required: true })
     parentId: Types.ObjectId;
 
-    @Prop({ type: Types.ObjectId, ref: 'TeacherProfile', required: true })
+    @Prop({ type: Types.ObjectId, ref: 'TeacherProfile' })
     teacherId: Types.ObjectId;
 
     @Prop({ type: Types.ObjectId, ref: 'ChildProfile' })

@@ -31,9 +31,9 @@ export class LeaderboardService {
 
     return children.map((child, index) => ({
       rank: index + 1,
-      displayName: this.anonymizeName(child.fullName, child._id.toString(), currentChildId),
+      displayName: this.anonymizeName(child.fullName, (child._id as any).toString(), currentChildId),
       points: child.totalPoints,
-      isCurrentChild: child._id.toString() === currentChildId,
+      isCurrentChild: (child._id as any).toString() === currentChildId,
     }));
   }
 

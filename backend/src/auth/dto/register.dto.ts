@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 import { UserRole } from '../../schemas/user.schema';
 
 export class RegisterDto {
@@ -18,8 +18,10 @@ export class RegisterDto {
   fullName: string;
 
   @IsString()
+  @IsOptional()
   phone?: string;
 
   @IsString()
+  @IsOptional()
   school?: string; // For teachers
 }

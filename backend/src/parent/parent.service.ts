@@ -69,12 +69,43 @@ export class ParentService {
       parentId: Types.ObjectId.isValid(parentId) ? new Types.ObjectId(parentId) : parentId,
       status: ConsentStatus.PENDING
     };
-    return await this.consentModel.find(query)
-      .populate('teacherId')
+    const consents = await this.consentModel.find(query)
+      .populate({
+        path: 'teacherId',
+        populate: {
+          path: 'userId',
+          select: 'email'
+        }
+      })
       .populate('childId')
       .populate('classroomId')
       .sort({ createdAt: -1 })
       .exec();
+
+    // Transform the data to match frontend expectations
+    return consents.map(consent => {
+      const consentObj: any = consent.toObject();
+      return {
+        id: consentObj._id.toString(),
+        type: consentObj.type,
+        status: consentObj.status,
+        message: consentObj.message,
+        teacher: consentObj.teacherId ? {
+          fullName: consentObj.teacherId.fullName,
+          school: consentObj.teacherId.school,
+          user: {
+            email: consentObj.teacherId.userId?.email || ''
+          }
+        } : null,
+        child: consentObj.childId ? {
+          fullName: consentObj.childId.fullName
+        } : null,
+        classroom: consentObj.classroomId ? {
+          name: consentObj.classroomId.name
+        } : null,
+        createdAt: consentObj.createdAt
+      };
+    });
   }
 
   async getAllConsents(parentId: string) {
@@ -82,7 +113,13 @@ export class ParentService {
       parentId: Types.ObjectId.isValid(parentId) ? new Types.ObjectId(parentId) : parentId,
     };
     return await this.consentModel.find(query)
-      .populate('teacherId')
+      .populate({
+        path: 'teacherId',
+        populate: {
+          path: 'userId',
+          select: 'email'
+        }
+      })
       .populate('childId')
       .populate('classroomId')
       .sort({ createdAt: -1 })

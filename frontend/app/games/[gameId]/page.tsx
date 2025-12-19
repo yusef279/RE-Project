@@ -5,6 +5,10 @@ import { useParams, useSearchParams } from 'next/navigation';
 import GameWrapper from '@/components/games/GameWrapper';
 import MemoryMatch from '@/components/games/MemoryMatch';
 import MathQuiz from '@/components/games/MathQuiz';
+import PharaohPyramid from '@/components/games/PharaohPyramid';
+import NileScience from '@/components/games/NileScience';
+import ArabicWordPuzzle from '@/components/games/ArabicWordPuzzle';
+import CreativeSandbox from '@/components/games/CreativeSandbox';
 import GameResults from '@/components/games/GameResults';
 import apiClient from '@/lib/api-client';
 
@@ -69,24 +73,15 @@ export default function GamePage() {
 
       // Fetch game details
       const gameResponse = await apiClient.get(`/api/games/${gameId}`);
+      console.log('Game data received:', gameResponse.data);
       setGame(gameResponse.data);
 
       // Fetch child's progress for this game
-      try {
-        const progressResponse = await apiClient.get(
-          `/api/games/progress/${childId}/${gameId}`
-        );
-        setProgress(progressResponse.data);
-      } catch (err: any) {
-        // No progress yet, use default difficulty
-        setProgress({
-          id: '',
-          currentDifficulty: 'easy',
-          highScore: 0,
-          timesCompleted: 0,
-        });
-      }
-
+      const progressResponse = await apiClient.get(
+        `/api/games/progress/${childId}/${gameId}`
+      );
+      setProgress(progressResponse.data);
+      console.log('Successfully loaded game and progress:', { game: gameResponse.data, progress: progressResponse.data });
       setLoading(false);
     } catch (err: any) {
       console.error('Error fetching game data:', err);
@@ -132,12 +127,15 @@ export default function GamePage() {
     );
   }
 
+  console.log('Checking render conditions:', { error, hasGame: !!game, hasProgress: !!progress, game, progress });
+
   if (error || !game || !progress) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-400 to-yellow-400 flex items-center justify-center">
         <div className="bg-white/90 backdrop-blur rounded-2xl shadow-xl p-8 text-center">
           <p className="text-4xl mb-4">❌</p>
           <p className="text-2xl font-bold text-red-600 mb-4">{error || 'Game not found'}</p>
+          <p className="text-sm text-gray-600 mt-2">Debug: error={String(error)}, game={game ? 'exists' : 'null'}, progress={progress ? 'exists' : 'null'}</p>
           <button
             onClick={() => window.history.back()}
             className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl transition-all"
@@ -165,6 +163,17 @@ export default function GamePage() {
 
   const difficulty = (progress.currentDifficulty || 'easy') as 'easy' | 'medium' | 'hard';
 
+  console.log('Rendering game:', {
+    title: game.title,
+    category: game.category,
+    categoryType: typeof game.category,
+    willRenderMemory: game.category === 'memory',
+    willRenderMath: game.category === 'math',
+    willRenderQuiz: game.category === 'quiz',
+    willRenderLanguage: game.category === 'language',
+    willRenderCreative: game.category === 'creative',
+  });
+
   return (
     <GameWrapper
       childId={childId}
@@ -175,10 +184,22 @@ export default function GamePage() {
       {game.category === 'memory' && (
         <MemoryMatch difficulty={difficulty} onComplete={handleGameComplete} />
       )}
-      {game.category === 'math' && (
+      {game.category === 'math' && game.title === 'Math Quiz' && (
         <MathQuiz difficulty={difficulty} onComplete={handleGameComplete} />
       )}
-      {game.category !== 'memory' && game.category !== 'math' && (
+      {game.category === 'math' && game.title.includes('Pyramid') && (
+        <PharaohPyramid difficulty={difficulty} onComplete={handleGameComplete} />
+      )}
+      {game.category === 'quiz' && (
+        <NileScience difficulty={difficulty} onComplete={handleGameComplete} />
+      )}
+      {game.category === 'language' && (
+        <ArabicWordPuzzle difficulty={difficulty} onComplete={handleGameComplete} />
+      )}
+      {game.category === 'creative' && (
+        <CreativeSandbox difficulty={difficulty} onComplete={handleGameComplete} />
+      )}
+      {!['memory', 'math', 'quiz', 'language', 'creative'].includes(game.category) && (
         <div className="bg-white/90 backdrop-blur rounded-2xl shadow-xl p-8 text-center">
           <p className="text-2xl text-gray-600">This game is not yet implemented.</p>
         </div>

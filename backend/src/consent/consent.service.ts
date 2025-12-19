@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import {
   Consent,
   ConsentStatus,
@@ -120,7 +120,16 @@ export class ConsentService {
   }
 
   async approveConsent(consentId: string, parentId: string) {
-    const consent = await this.consentModel.findOne({ _id: consentId, parentId }).exec();
+    console.log('DEBUG approveConsent - consentId:', consentId, 'parentId:', parentId);
+
+    const query = {
+      _id: Types.ObjectId.isValid(consentId) ? new Types.ObjectId(consentId) : consentId,
+      parentId: Types.ObjectId.isValid(parentId) ? new Types.ObjectId(parentId) : parentId
+    };
+    console.log('DEBUG approveConsent - query:', JSON.stringify(query));
+
+    const consent = await this.consentModel.findOne(query).exec();
+    console.log('DEBUG approveConsent - found consent:', consent ? 'YES' : 'NO');
 
     if (!consent) {
       throw new NotFoundException('Consent not found');
@@ -146,7 +155,16 @@ export class ConsentService {
   }
 
   async rejectConsent(consentId: string, parentId: string) {
-    const consent = await this.consentModel.findOne({ _id: consentId, parentId }).exec();
+    console.log('DEBUG rejectConsent - consentId:', consentId, 'parentId:', parentId);
+
+    const query = {
+      _id: Types.ObjectId.isValid(consentId) ? new Types.ObjectId(consentId) : consentId,
+      parentId: Types.ObjectId.isValid(parentId) ? new Types.ObjectId(parentId) : parentId
+    };
+    console.log('DEBUG rejectConsent - query:', JSON.stringify(query));
+
+    const consent = await this.consentModel.findOne(query).exec();
+    console.log('DEBUG rejectConsent - found consent:', consent ? 'YES' : 'NO');
 
     if (!consent) {
       throw new NotFoundException('Consent not found');
@@ -182,5 +200,86 @@ export class ConsentService {
     }
 
     return consent;
+  }
+
+  async getAllParents() {
+    const parents = await this.parentProfileModel
+      .find()
+      .populate('userId', 'email')
+      .exec();
+
+    const parentsWithChildren = await Promise.all(
+      parents.map(async (parent) => {
+        const children = await this.childModel
+          .find({ parentId: parent._id })
+          .select('fullName age totalPoints')
+          .exec();
+
+        return {
+          _id: parent._id,
+          fullName: parent.fullName,
+          email: parent.userId?.['email'],
+          children: children.map((child) => ({
+            _id: child._id,
+            fullName: child.fullName,
+            age: child.age,
+            totalPoints: child.totalPoints,
+          })),
+        };
+      }),
+    );
+
+    return parentsWithChildren;
+  }
+
+  async adminRequestConsent(requestConsentDto: RequestConsentDto) {
+    const { type, parentId, childId, message } = requestConsentDto;
+
+    // Verify parent exists
+    const parent = await this.parentProfileModel.findById(parentId).exec();
+
+    if (!parent) {
+      throw new NotFoundException('Parent not found');
+    }
+
+    // Type-specific validation
+    if (type === ConsentType.CHILD) {
+      if (!childId) {
+        throw new BadRequestException('Child ID is required for child consent');
+      }
+
+      const child = await this.childModel.findOne({
+        _id: childId,
+        parentId,
+      }).exec();
+
+      if (!child) {
+        throw new NotFoundException('Child not found or not owned by parent');
+      }
+    }
+
+    // Check for existing pending consent
+    const existingConsent = await this.consentModel.findOne({
+      parentId,
+      childId,
+      type,
+      status: ConsentStatus.PENDING,
+      teacherId: null, // Admin requests don't have a teacher
+    }).exec();
+
+    if (existingConsent) {
+      throw new BadRequestException('A pending consent request already exists');
+    }
+
+    // Create consent
+    const consent = new this.consentModel({
+      type,
+      parentId,
+      childId,
+      message,
+      status: ConsentStatus.PENDING,
+    });
+
+    return await consent.save();
   }
 }

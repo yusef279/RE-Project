@@ -49,7 +49,7 @@ export class RewardsService {
     const newBadges: ChildBadge[] = [];
 
     for (const badge of allBadges) {
-      if (earnedBadgeIds.includes(badge._id.toString())) {
+      if (earnedBadgeIds.includes((badge._id as any).toString())) {
         continue; // Already earned
       }
 
