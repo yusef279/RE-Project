@@ -775,10 +775,14 @@ export default function ParentDashboard() {
                         <div className="flex justify-between items-start">
                           <div>
                             <h3 className="font-semibold text-gray-900">
-                              Teacher: {consent.teacher.fullName}
+                              Teacher: {consent.teacher?.fullName || 'Unknown Teacher'}
                             </h3>
-                            <p className="text-sm text-gray-600">{consent.teacher.school}</p>
-                            <p className="text-sm text-gray-600">Child: {consent.child.fullName}</p>
+                            {consent.teacher?.school && (
+                              <p className="text-sm text-gray-600">{consent.teacher.school}</p>
+                            )}
+                            <p className="text-sm text-gray-600">
+                              Child: {consent.child?.fullName || 'Unknown Child'}
+                            </p>
                             {consent.classroom && (
                               <p className="text-sm text-gray-600">Classroom: {consent.classroom.name}</p>
                             )}
@@ -788,7 +792,7 @@ export default function ParentDashboard() {
                           </div>
                           <div className="flex gap-2">
                             <button
-                              onClick={() => handleApproveConsent(consent.id, consent.teacher.fullName)}
+                              onClick={() => handleApproveConsent(consent.id, consent.teacher?.fullName || 'Unknown')}
                               className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
                             >
                               ✓ Approve
@@ -1053,10 +1057,12 @@ export default function ParentDashboard() {
                         const isMyChild = children.some(c => c.id === entry.childId);
                         const rank = entry.rank || index + 1;
                         const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+                        // Use a unique key combining rank and childName since childId may be empty
+                        const uniqueKey = `${rank}-${entry.childName}-${index}`;
 
                         return (
                           <div
-                            key={entry.childId}
+                            key={uniqueKey}
                             className={`flex items-center gap-4 p-4 rounded-xl ${isMyChild
                                 ? 'bg-gradient-to-r from-amber-100 to-orange-100 border-2 border-amber-400'
                                 : 'bg-gray-50 border border-gray-200'

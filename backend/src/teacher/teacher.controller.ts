@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Put,
   Delete,
   Body,
   Param,
@@ -12,6 +13,7 @@ import {
 import { TeacherService } from './teacher.service';
 import { CreateClassroomDto } from './dto/create-classroom.dto';
 import { UpdateClassroomDto } from './dto/update-classroom.dto';
+import { UpdateTeacherDto } from './dto/update-teacher.dto';
 import { BulkConsentDto } from './dto/bulk-consent.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -118,5 +120,18 @@ export class TeacherController {
   @Get('parents')
   async getAllParents() {
     return this.teacherService.getAllParents();
+  }
+
+  @Get('profile')
+  async getProfile(@CurrentUser() user: any) {
+    return this.teacherService.getTeacherProfile(user.profileId);
+  }
+
+  @Put('profile')
+  async updateProfile(
+    @CurrentUser() user: any,
+    @Body() updateTeacherDto: UpdateTeacherDto,
+  ) {
+    return this.teacherService.updateTeacherProfile(user.profileId, updateTeacherDto);
   }
 }

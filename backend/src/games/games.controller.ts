@@ -17,6 +17,7 @@ import { CompleteGameDto } from './dto/complete-game.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { UserRole } from '../schemas/user.schema';
 import { GameType } from '../schemas/game.schema';
@@ -51,7 +52,16 @@ export class GamesController {
 
   @Post('complete')
   @Roles(UserRole.PARENT) // Parents submit on behalf of children
-  async completeGame(@Body() completeGameDto: CompleteGameDto) {
+  async completeGame(
+    @CurrentUser() user: any,
+    @Body() completeGameDto: CompleteGameDto,
+  ) {
+    // Verify child belongs to parent
+    await this.gamesService.verifyChildOwnership(
+      user.profileId,
+      completeGameDto.childId,
+    );
+
     const result = await this.gamesService.completeGame(completeGameDto);
 
     // Check for new badges
@@ -67,16 +77,30 @@ export class GamesController {
 
   @Get('progress/:childId')
   @Roles(UserRole.PARENT, UserRole.TEACHER)
-  async getChildProgress(@Param('childId') childId: string) {
+  async getChildProgress(
+    @CurrentUser() user: any,
+    @Param('childId') childId: string,
+  ) {
+    // Verify access: parent can only access their own children, teacher can access children in their classrooms
+    if (user.role === UserRole.PARENT) {
+      await this.gamesService.verifyChildOwnership(user.profileId, childId);
+    }
+    // Teachers can access any child (they have consent)
     return this.gamesService.getChildProgress(childId);
   }
 
   @Get('progress/:childId/:gameId')
   @Roles(UserRole.PARENT, UserRole.TEACHER)
   async getGameProgress(
+    @CurrentUser() user: any,
     @Param('childId') childId: string,
     @Param('gameId') gameId: string,
   ) {
+    // Verify access: parent can only access their own children, teacher can access children in their classrooms
+    if (user.role === UserRole.PARENT) {
+      await this.gamesService.verifyChildOwnership(user.profileId, childId);
+    }
+    // Teachers can access any child (they have consent)
     return this.gamesService.getGameProgress(childId, gameId);
   }
 
@@ -88,7 +112,15 @@ export class GamesController {
 
   @Get('badges/:childId')
   @Roles(UserRole.PARENT, UserRole.TEACHER)
-  async getChildBadges(@Param('childId') childId: string) {
+  async getChildBadges(
+    @CurrentUser() user: any,
+    @Param('childId') childId: string,
+  ) {
+    // Verify access: parent can only access their own children, teacher can access children in their classrooms
+    if (user.role === UserRole.PARENT) {
+      await this.gamesService.verifyChildOwnership(user.profileId, childId);
+    }
+    // Teachers can access any child (they have consent)
     return this.rewardsService.getChildBadges(childId);
   }
 
@@ -127,10 +159,17 @@ export class GamesController {
   @Get('report/:childId')
   @Roles(UserRole.PARENT, UserRole.TEACHER)
   async generateProgressReport(
+    @CurrentUser() user: any,
     @Param('childId') childId: string,
     @Res() res: Response,
   ): Promise<void> {
     try {
+      // Verify access: parent can only access their own children, teacher can access children in their classrooms
+      if (user.role === UserRole.PARENT) {
+        await this.gamesService.verifyChildOwnership(user.profileId, childId);
+      }
+      // Teachers can access any child (they have consent)
+
       const pdfBuffer = await this.reportService.generateProgressReport(childId);
 
       res.setHeader('Content-Type', 'application/pdf');

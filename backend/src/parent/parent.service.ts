@@ -5,6 +5,7 @@ import { ChildProfile } from '../schemas/child-profile.schema';
 import { ParentProfile } from '../schemas/parent-profile.schema';
 import { Consent, ConsentStatus } from '../schemas/consent.schema';
 import { CreateChildDto } from './dto/create-child.dto';
+import { UpdateChildDto } from './dto/update-child.dto';
 
 @Injectable()
 export class ParentService {
@@ -124,5 +125,49 @@ export class ParentService {
       .populate('classroomId')
       .sort({ createdAt: -1 })
       .exec();
+  }
+
+  async updateChild(parentId: string, childId: string, updateChildDto: UpdateChildDto) {
+    const query = {
+      _id: Types.ObjectId.isValid(childId) ? new Types.ObjectId(childId) : childId,
+      parentId: Types.ObjectId.isValid(parentId) ? new Types.ObjectId(parentId) : parentId,
+    };
+    const child = await this.childModel.findOneAndUpdate(
+      query,
+      { $set: updateChildDto },
+      { new: true, runValidators: true }
+    ).exec();
+
+    if (!child) {
+      throw new NotFoundException('Child not found');
+    }
+
+    return child;
+  }
+
+  async getParentProfile(parentId: string) {
+    const profile = await this.parentProfileModel.findById(parentId)
+      .populate('userId', 'email')
+      .exec();
+
+    if (!profile) {
+      throw new NotFoundException('Parent profile not found');
+    }
+
+    return profile;
+  }
+
+  async updateParentProfile(parentId: string, updateData: { fullName?: string; phone?: string }) {
+    const profile = await this.parentProfileModel.findByIdAndUpdate(
+      parentId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).exec();
+
+    if (!profile) {
+      throw new NotFoundException('Parent profile not found');
+    }
+
+    return profile;
   }
 }

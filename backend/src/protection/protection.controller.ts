@@ -36,37 +36,74 @@ export class ProtectionController {
   // Parent endpoints
   @Post('safety-rules')
   @Roles(UserRole.PARENT)
-  async createSafetyRules(@Body() dto: CreateSafetyRuleDto) {
-    return this.safetyRulesService.createOrUpdateRules(dto);
+  async createSafetyRules(
+    @CurrentUser() user: any,
+    @Body() dto: CreateSafetyRuleDto,
+  ) {
+    // Extract parentId from authenticated user
+    const parentId = user.profileId;
+    
+    // Verify child belongs to parent before creating/updating rules
+    await this.safetyRulesService.verifyChildOwnership(parentId, dto.childId);
+    
+    return this.safetyRulesService.createOrUpdateRules({
+      ...dto,
+      parentId,
+    });
   }
 
   @Get('safety-rules/:childId')
   @Roles(UserRole.PARENT, UserRole.ADMIN)
-  async getSafetyRules(@Param('childId') childId: string) {
+  async getSafetyRules(
+    @CurrentUser() user: any,
+    @Param('childId') childId: string,
+  ) {
+    // Verify child belongs to parent (admins can access any)
+    if (user.role === UserRole.PARENT) {
+      await this.safetyRulesService.verifyChildOwnership(user.profileId, childId);
+    }
     return this.safetyRulesService.getRules(childId);
   }
 
   @Get('threats/child/:childId')
   @Roles(UserRole.PARENT, UserRole.ADMIN)
   async getChildThreats(
+    @CurrentUser() user: any,
     @Param('childId') childId: string,
     @Query('status') status?: string,
   ) {
+    // Verify child belongs to parent (admins can access any)
+    if (user.role === UserRole.PARENT) {
+      await this.safetyRulesService.verifyChildOwnership(user.profileId, childId);
+    }
     return this.threatDetectionService.getChildThreats(childId, status as any);
   }
 
   @Get('screen-time-status/:childId')
   @Roles(UserRole.PARENT, UserRole.TEACHER, UserRole.ADMIN)
-  async getScreenTimeStatus(@Param('childId') childId: string) {
+  async getScreenTimeStatus(
+    @CurrentUser() user: any,
+    @Param('childId') childId: string,
+  ) {
+    // Verify access: parent can only access their own children
+    if (user.role === UserRole.PARENT) {
+      await this.safetyRulesService.verifyChildOwnership(user.profileId, childId);
+    }
+    // Teachers and admins can access any child
     return this.monitoringService.checkTimeLimit(childId);
   }
 
   @Get('usage-summary/:childId')
   @Roles(UserRole.PARENT, UserRole.ADMIN)
   async getUsageSummary(
+    @CurrentUser() user: any,
     @Param('childId') childId: string,
     @Query('days') days?: number,
   ) {
+    // Verify child belongs to parent (admins can access any)
+    if (user.role === UserRole.PARENT) {
+      await this.safetyRulesService.verifyChildOwnership(user.profileId, childId);
+    }
     return this.monitoringService.getUsageSummary(childId, days ? parseInt(days.toString()) : 7);
   }
 
@@ -163,6 +200,9 @@ export class ProtectionController {
     @Param('childId') childId: string,
     @Query('limit') limit?: number,
   ) {
+    // Verify child belongs to parent
+    await this.safetyRulesService.verifyChildOwnership(user.profileId, childId);
+    
     return this.parentAlertService.getAlertsByChild(
       user.profileId,
       childId,

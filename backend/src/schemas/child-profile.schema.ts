@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { AgeGroup, getAgeGroup } from '../common/enums/age-group.enum';
 
 @Schema({
     timestamps: true,
@@ -10,7 +11,7 @@ export class ChildProfile extends Document {
     @Prop({ required: true })
     fullName: string;
 
-    @Prop({ required: true })
+    @Prop({ required: true, min: 3, max: 12 })
     age: number;
 
     @Prop({ default: 'ar-EG' })
@@ -27,6 +28,16 @@ export class ChildProfile extends Document {
 
     @Prop({ default: true })
     isActive: boolean;
+
+    // Virtual property for age group
+    get ageGroup(): AgeGroup {
+        return getAgeGroup(this.age);
+    }
 }
 
 export const ChildProfileSchema = SchemaFactory.createForClass(ChildProfile);
+
+// Add virtual for age group
+ChildProfileSchema.virtual('ageGroup').get(function() {
+    return getAgeGroup(this.age);
+});

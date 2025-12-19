@@ -77,7 +77,7 @@ export function Chat({ currentChildId, currentChildName, onClose }: ChatProps) {
 
   const fetchChatList = async () => {
     try {
-      const response = await apiClient.get('/api/chat/list');
+      const response = await apiClient.get(`/api/chat/list?childId=${currentChildId}`);
       setChatList(response.data);
     } catch (error) {
       console.error('Failed to fetch chat list:', error);
@@ -88,7 +88,7 @@ export function Chat({ currentChildId, currentChildName, onClose }: ChatProps) {
 
   const fetchAvailableChildren = async () => {
     try {
-      const response = await apiClient.get('/api/chat/available-children');
+      const response = await apiClient.get(`/api/chat/available-children?currentChildId=${currentChildId}`);
       setAvailableChildren(response.data);
     } catch (error) {
       console.error('Failed to fetch available children:', error);
@@ -97,7 +97,7 @@ export function Chat({ currentChildId, currentChildName, onClose }: ChatProps) {
 
   const fetchConversation = async (partnerId: string) => {
     try {
-      const response = await apiClient.get(`/api/chat/conversation/${partnerId}`);
+      const response = await apiClient.get(`/api/chat/conversation/${partnerId}?currentChildId=${currentChildId}`);
       setMessages(response.data.reverse());
     } catch (error) {
       console.error('Failed to fetch conversation:', error);
@@ -106,7 +106,9 @@ export function Chat({ currentChildId, currentChildName, onClose }: ChatProps) {
 
   const markAsRead = async (senderId: string) => {
     try {
-      await apiClient.post(`/api/chat/mark-read/${senderId}`);
+      await apiClient.post(`/api/chat/mark-read/${senderId}`, {
+        childId: currentChildId,
+      });
       fetchChatList(); // Refresh to update unread counts
     } catch (error) {
       console.error('Failed to mark as read:', error);
@@ -123,6 +125,7 @@ export function Chat({ currentChildId, currentChildName, onClose }: ChatProps) {
       const response = await apiClient.post('/api/chat/send', {
         receiverId: partnerId,
         content: newMessage.trim(),
+        childId: currentChildId,
       });
 
       // Add message to UI

@@ -59,9 +59,11 @@ export default function GamePage() {
   const [showResults, setShowResults] = useState(false);
   const [completionResult, setCompletionResult] = useState<CompletionResult | null>(null);
   const [gameMetadata, setGameMetadata] = useState<Record<string, any>>({});
-  const [startTime] = useState(Date.now());
+  const [startTime] = useState(() => typeof window !== 'undefined' ? Date.now() : 0);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     if (gameId && childId) {
       fetchGameData();
     }
@@ -116,7 +118,8 @@ export default function GamePage() {
     }
   };
 
-  if (loading) {
+  // Prevent hydration mismatch by not rendering loading state on server
+  if (!mounted || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-400 to-yellow-400 flex items-center justify-center">
         <div className="text-center text-white">

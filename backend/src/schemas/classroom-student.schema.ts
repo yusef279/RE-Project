@@ -14,3 +14,6 @@ export class ClassroomStudent extends Document {
 }
 
 export const ClassroomStudentSchema = SchemaFactory.createForClass(ClassroomStudent);
+
+// Add unique compound index to prevent duplicate enrollments
+ClassroomStudentSchema.index({ classroomId: 1, childId: 1 }, { unique: true });

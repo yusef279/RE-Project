@@ -66,6 +66,7 @@ export function GroupChat({ currentChildId, currentChildName, onClose }: GroupCh
     try {
       const response = await apiClient.post('/api/chat/group/send', {
         content: newMessage.trim(),
+        childId: currentChildId,
       });
 
       // Add message to UI

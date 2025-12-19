@@ -20,30 +20,7 @@ import { UserRole } from '../schemas/user.schema';
 export class ConsentController {
   constructor(private readonly consentService: ConsentService) { }
 
-  @Post('teacher-request')
-  @Roles(UserRole.TEACHER)
-  async requestConsent(
-    @CurrentUser() user: any,
-    @Body() requestConsentDto: RequestConsentDto,
-  ) {
-    return this.consentService.requestConsent(
-      user.profileId,
-      requestConsentDto,
-    );
-  }
-
-  @Patch(':id/approve')
-  @Roles(UserRole.PARENT)
-  async approveConsent(@CurrentUser() user: any, @Param('id') consentId: string) {
-    return this.consentService.approveConsent(consentId, user.profileId);
-  }
-
-  @Patch(':id/reject')
-  @Roles(UserRole.PARENT)
-  async rejectConsent(@CurrentUser() user: any, @Param('id') consentId: string) {
-    return this.consentService.rejectConsent(consentId, user.profileId);
-  }
-
+  // Admin routes - must come before parameterized routes
   @Get('admin/parents')
   @Roles(UserRole.ADMIN)
   async getAllParents() {
@@ -56,6 +33,32 @@ export class ConsentController {
     @Body() requestConsentDto: RequestConsentDto,
   ) {
     return this.consentService.adminRequestConsent(requestConsentDto);
+  }
+
+  // Teacher routes
+  @Post('teacher-request')
+  @Roles(UserRole.TEACHER)
+  async requestConsent(
+    @CurrentUser() user: any,
+    @Body() requestConsentDto: RequestConsentDto,
+  ) {
+    return this.consentService.requestConsent(
+      user.profileId,
+      requestConsentDto,
+    );
+  }
+
+  // Parameterized routes - must come after specific routes
+  @Patch(':id/approve')
+  @Roles(UserRole.PARENT)
+  async approveConsent(@CurrentUser() user: any, @Param('id') consentId: string) {
+    return this.consentService.approveConsent(consentId, user.profileId);
+  }
+
+  @Patch(':id/reject')
+  @Roles(UserRole.PARENT)
+  async rejectConsent(@CurrentUser() user: any, @Param('id') consentId: string) {
+    return this.consentService.rejectConsent(consentId, user.profileId);
   }
 
   @Get(':id')

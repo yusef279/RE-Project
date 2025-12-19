@@ -86,7 +86,13 @@ export function AdminConsentManager() {
       setMessage('');
     } catch (error: any) {
       console.error('Failed to send consent:', error);
-      setErrorMessage(error.response?.data?.message || 'Failed to send consent request');
+      if (error.response?.status === 404) {
+        setErrorMessage('API endpoint not found. Please ensure the backend server is running and the route is properly configured.');
+      } else if (error.response?.status === 403) {
+        setErrorMessage('Access denied. You must be logged in as an admin to send consent requests.');
+      } else {
+        setErrorMessage(error.response?.data?.message || error.message || 'Failed to send consent request. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }

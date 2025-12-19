@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model, Types, Document } from 'mongoose';
 import { Classroom } from '../schemas/classroom.schema';
 import { ClassroomStudent } from '../schemas/classroom-student.schema';
 import { TeacherProfile } from '../schemas/teacher-profile.schema';
@@ -208,48 +208,105 @@ export class TeacherService {
       classroomId: Types.ObjectId.isValid(classroomId) ? new Types.ObjectId(classroomId) : classroomId
     };
     const classroomStudents = await this.classroomStudentModel.find(classroomQuery).populate('childId').exec();
-    const students = classroomStudents.map((cs) => cs.childId as unknown as ChildProfile);
+    const students = classroomStudents
+      .map((cs) => cs.childId as unknown as ChildProfile)
+      .filter((child): child is ChildProfile => child != null && typeof child === 'object');
 
     // Calculate total points
     const totalPoints = students.reduce((sum, child) => sum + (child.totalPoints || 0), 0);
     const averagePoints = students.length > 0 ? totalPoints / students.length : 0;
 
     // Get game progress for all students
-    const studentIds = students.map((s) => s._id);
-    const allProgress = await this.progressModel.find({
-      childId: { $in: studentIds }
-    }).populate('gameId').exec();
+    const studentIds = students
+      .map((s) => s._id)
+      .filter((id) => id != null)
+      .map((id) => (Types.ObjectId.isValid(id) ? (id instanceof Types.ObjectId ? id : new Types.ObjectId(id)) : id));
+
+    let allProgress: (GameProgress & { gameId?: any } & Document)[] = [];
+    if (studentIds.length > 0) {
+      allProgress = await this.progressModel
+        .find({
+          childId: { $in: studentIds }
+        })
+        .populate({
+          path: 'gameId',
+          model: 'Game',
+          select: 'title iconEmoji _id'
+        })
+        .exec();
+    }
 
     // Group by game
     const gameStats: Record<string, any> = {};
     allProgress.forEach((progress) => {
+      // Skip if gameId is not populated or is null
+      if (!progress.gameId) {
+        console.warn('GameProgress has null/undefined gameId:', progress._id);
+        return;
+      }
+
       const game = progress.gameId as any;
-      const gameId = game._id.toString();
+      
+      // Handle both populated game object and ObjectId
+      let gameId: string;
+      let gameTitle: string;
+      let gameIcon: string;
+      
+      if (game && typeof game === 'object' && game._id) {
+        // Populated game object
+        gameId = game._id.toString();
+        gameTitle = game.title || 'Unknown Game';
+        gameIcon = game.iconEmoji || '🎮';
+      } else if (Types.ObjectId.isValid(game)) {
+        // Just an ObjectId, need to fetch game details
+        gameId = game.toString();
+        gameTitle = 'Unknown Game';
+        gameIcon = '🎮';
+      } else {
+        // Invalid game reference
+        console.warn('Invalid game reference in progress:', progress._id, 'gameId:', game);
+        return;
+      }
+      
       if (!gameStats[gameId]) {
         gameStats[gameId] = {
-          gameTitle: game.title,
-          gameIcon: game.iconEmoji,
+          gameTitle,
+          gameIcon,
           totalCompletions: 0,
           averageScore: 0,
           scores: [],
         };
       }
-      gameStats[gameId].totalCompletions += progress.timesCompleted;
-      gameStats[gameId].scores.push(progress.highScore);
+      
+      // Only count if there are actual completions
+      if (progress.timesCompleted && progress.timesCompleted > 0) {
+        gameStats[gameId].totalCompletions += progress.timesCompleted || 0;
+      }
+      
+      // Only add score if highScore exists and is valid
+      if (progress.highScore != null && progress.highScore >= 0) {
+        gameStats[gameId].scores.push(progress.highScore);
+      }
     });
 
-    // Calculate averages
+    // Calculate averages and clean up empty games
+    const validGameStats: any[] = [];
     Object.keys(gameStats).forEach((gameId) => {
-      const scores = gameStats[gameId].scores;
-      gameStats[gameId].averageScore = scores.reduce((a: number, b: number) => a + b, 0) / scores.length;
-
-      // Highlight low performance (AC-07.2: < 70% threshold)
-      // Assuming max score is 100 for percentage comparison, 
-      // or using a relative metric if points vary. 
-      // For this demo, we'll flag any students with highScore < 70 in a 'key' game.
-      gameStats[gameId].lowPerformers = allProgress
-        .filter(p => p.gameId.toString() === gameId && p.highScore < 70)
-        .map(p => p.childId);
+      const stats = gameStats[gameId];
+      
+      // Only include games that have been played (have completions or scores)
+      if (stats.totalCompletions > 0 || stats.scores.length > 0) {
+        if (stats.scores.length > 0) {
+          stats.averageScore = stats.scores.reduce((a: number, b: number) => a + b, 0) / stats.scores.length;
+        } else {
+          stats.averageScore = 0;
+        }
+        
+        // Remove scores array from final output (not needed in response)
+        delete stats.scores;
+        
+        validGameStats.push(stats);
+      }
     });
 
     return {
@@ -262,14 +319,14 @@ export class TeacherService {
       analytics: {
         totalPoints,
         averagePoints: Math.round(averagePoints),
-        gameStats: Object.values(gameStats),
+        gameStats: validGameStats,
         topStudents: students
           .sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0))
           .slice(0, 5)
           .map((child) => ({
             id: child._id,
             fullName: child.fullName,
-            totalPoints: child.totalPoints,
+            totalPoints: child.totalPoints || 0,
           })),
       },
     };
@@ -312,25 +369,29 @@ export class TeacherService {
 
     // Transform the data to match frontend expectations
     return consents.map(consent => {
-      const consentObj = consent.toObject();
+      const consentObj = consent.toObject() as any;
+      const parentId = consentObj.parentId as any;
+      const childId = consentObj.childId as any;
+      const classroomId = consentObj.classroomId as any;
+      
       return {
         id: consentObj._id.toString(),
         type: consentObj.type,
         status: consentObj.status,
         message: consentObj.message,
-        parent: consentObj.parentId ? {
-          fullName: consentObj.parentId.fullName,
+        parent: parentId && typeof parentId === 'object' && 'fullName' in parentId ? {
+          fullName: parentId.fullName,
           user: {
-            email: consentObj.parentId.userId?.email || ''
+            email: parentId.userId?.email || ''
           }
         } : null,
-        child: consentObj.childId ? {
-          fullName: consentObj.childId.fullName
+        child: childId && typeof childId === 'object' && 'fullName' in childId ? {
+          fullName: childId.fullName
         } : null,
-        classroom: consentObj.classroomId ? {
-          name: consentObj.classroomId.name
+        classroom: classroomId && typeof classroomId === 'object' && 'name' in classroomId ? {
+          name: classroomId.name
         } : null,
-        createdAt: consentObj.createdAt
+        createdAt: consentObj.createdAt || consentObj.created_at
       };
     });
   }
@@ -363,5 +424,31 @@ export class TeacherService {
     );
 
     return parentsWithChildren;
+  }
+
+  async getTeacherProfile(teacherId: string) {
+    const profile = await this.teacherProfileModel.findById(teacherId)
+      .populate('userId', 'email')
+      .exec();
+
+    if (!profile) {
+      throw new NotFoundException('Teacher profile not found');
+    }
+
+    return profile;
+  }
+
+  async updateTeacherProfile(teacherId: string, updateData: { fullName?: string; phone?: string; school?: string }) {
+    const profile = await this.teacherProfileModel.findByIdAndUpdate(
+      teacherId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).exec();
+
+    if (!profile) {
+      throw new NotFoundException('Teacher profile not found');
+    }
+
+    return profile;
   }
 }

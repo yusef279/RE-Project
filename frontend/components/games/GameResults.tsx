@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import RewardNotification from './RewardNotification';
 
 interface Badge {
   id: string;
@@ -32,6 +33,7 @@ export default function GameResults({
   metadata,
 }: GameResultsProps) {
   const router = useRouter();
+  const [showNotification, setShowNotification] = useState(newBadges.length > 0 || pointsEarned > 0);
 
   const handlePlayAgain = () => {
     window.location.reload();
@@ -43,6 +45,17 @@ export default function GameResults({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-400 to-yellow-400 flex items-center justify-center p-4">
+      {/* Reward Notification Toast */}
+      {showNotification && (
+        <RewardNotification
+          badges={newBadges}
+          pointsEarned={pointsEarned}
+          onClose={() => setShowNotification(false)}
+          autoClose={true}
+          autoCloseDelay={6000}
+        />
+      )}
+
       <div className="max-w-2xl w-full bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-8 text-center">
         {/* Celebration Header */}
         <div className="mb-6">
@@ -75,9 +88,9 @@ export default function GameResults({
               🏆 New Badges Unlocked!
             </p>
             <div className="grid grid-cols-1 gap-4">
-              {newBadges.map((badge) => (
+              {newBadges.map((badge, index) => (
                 <div
-                  key={badge.id}
+                  key={badge.id || (badge as any)._id || `badge-${index}`}
                   className="p-4 bg-gradient-to-r from-yellow-100 to-yellow-200 border-2 border-yellow-400 rounded-xl"
                 >
                   <p className="text-4xl mb-2">{badge.iconEmoji}</p>

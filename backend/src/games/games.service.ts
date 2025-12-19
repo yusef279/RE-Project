@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Game, GameType } from '../schemas/game.schema';
@@ -189,5 +189,23 @@ export class GamesService {
     }
 
     return progress;
+  }
+
+  /**
+   * Verify that a child belongs to a parent
+   * @throws NotFoundException if child doesn't exist or doesn't belong to parent
+   */
+  async verifyChildOwnership(parentId: string, childId: string): Promise<void> {
+    const childQueryId = Types.ObjectId.isValid(childId) ? new Types.ObjectId(childId) : childId;
+    const parentQueryId = Types.ObjectId.isValid(parentId) ? new Types.ObjectId(parentId) : parentId;
+    
+    const child = await this.childModel.findOne({
+      _id: childQueryId,
+      parentId: parentQueryId,
+    }).exec();
+
+    if (!child) {
+      throw new NotFoundException('Child not found or access denied');
+    }
   }
 }

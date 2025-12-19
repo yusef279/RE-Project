@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -14,9 +14,15 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  // Ensure component is mounted on client before rendering content
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
-    if (!loading) {
+    if (!loading && mounted) {
       if (!user) {
         router.push('/login');
       } else if (allowedRoles && !allowedRoles.includes(user.role)) {
@@ -30,7 +36,13 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
         }
       }
     }
-  }, [user, loading, allowedRoles, router]);
+  }, [user, loading, allowedRoles, router, mounted]);
+
+  // Return null during SSR to avoid hydration mismatch with MUI styles
+  // After mount, show loading state if still loading
+  if (!mounted) {
+    return null;
+  }
 
   if (loading) {
     return (

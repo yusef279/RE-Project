@@ -63,11 +63,21 @@ export default function ClassroomDetailPage() {
         apiClient.get(`/api/teacher/classrooms/${classroomId}/leaderboard`),
       ]);
 
-      setClassroom(analyticsRes.data.classroom);
-      setAnalytics(analyticsRes.data.analytics);
-      setLeaderboard(leaderboardRes.data);
-    } catch (error) {
+      if (analyticsRes.data && analyticsRes.data.classroom && analyticsRes.data.analytics) {
+        setClassroom(analyticsRes.data.classroom);
+        setAnalytics(analyticsRes.data.analytics);
+      } else {
+        console.error('Invalid analytics response structure:', analyticsRes.data);
+      }
+
+      if (leaderboardRes.data) {
+        setLeaderboard(leaderboardRes.data);
+      }
+    } catch (error: any) {
       console.error('Failed to fetch classroom data:', error);
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+      }
     } finally {
       setLoading(false);
     }
@@ -216,21 +226,23 @@ export default function ClassroomDetailPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {analytics.gameStats.map((game, index) => (
                         <div
-                          key={index}
+                          key={`${game.gameTitle}-${index}`}
                           className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border border-blue-200"
                         >
                           <div className="flex items-center gap-3 mb-3">
-                            <span className="text-3xl">{game.gameIcon}</span>
-                            <h3 className="font-semibold text-gray-900">{game.gameTitle}</h3>
+                            <span className="text-3xl">{game.gameIcon || '🎮'}</span>
+                            <h3 className="font-semibold text-gray-900">{game.gameTitle || 'Unknown Game'}</h3>
                           </div>
                           <div className="grid grid-cols-2 gap-3 text-sm">
                             <div>
                               <p className="text-gray-600">Completions</p>
-                              <p className="text-lg font-bold text-blue-600">{game.totalCompletions}</p>
+                              <p className="text-lg font-bold text-blue-600">{game.totalCompletions || 0}</p>
                             </div>
                             <div>
                               <p className="text-gray-600">Avg Score</p>
-                              <p className="text-lg font-bold text-purple-600">{Math.round(game.averageScore)}</p>
+                              <p className="text-lg font-bold text-purple-600">
+                                {game.averageScore ? Math.round(game.averageScore) : 0}
+                              </p>
                             </div>
                           </div>
                         </div>

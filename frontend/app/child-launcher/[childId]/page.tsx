@@ -156,12 +156,20 @@ export default function ChildLauncherPage() {
                 {menuStyle.icon} {menuStyle.text}
               </h1>
             </div>
-            <button
-              onClick={handleBackToLauncher}
-              className="bg-white hover:bg-amber-50 text-amber-800 font-bold py-4 px-8 rounded-2xl shadow-xl text-xl border-4 border-amber-600 transform hover:scale-105 transition-all"
-            >
-              ← Back
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => router.push(`/games?childId=${params.childId}`)}
+                className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-4 px-6 rounded-2xl shadow-xl text-lg border-4 border-purple-600 transform hover:scale-105 transition-all"
+              >
+                📚 Browse All
+              </button>
+              <button
+                onClick={handleBackToLauncher}
+                className="bg-white hover:bg-amber-50 text-amber-800 font-bold py-4 px-8 rounded-2xl shadow-xl text-xl border-4 border-amber-600 transform hover:scale-105 transition-all"
+              >
+                ← Back
+              </button>
+            </div>
           </div>
 
           {/* Games Grid */}

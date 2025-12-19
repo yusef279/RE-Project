@@ -6,11 +6,13 @@ import {
   ActivityEvent,
   ActivityEventSchema,
 } from '../schemas/activity-event.schema';
+import { ChildProfile, ChildProfileSchema } from '../schemas/child-profile.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: ActivityEvent.name, schema: ActivityEventSchema },
+      { name: ChildProfile.name, schema: ChildProfileSchema },
     ]),
   ],
   controllers: [ActivityController],

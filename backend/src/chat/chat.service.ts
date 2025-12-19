@@ -265,6 +265,16 @@ export class ChatService {
       throw new BadRequestException('Message content cannot be empty');
     }
 
+    // Check content length (max 500 characters)
+    if (content.length > 500) {
+      throw new BadRequestException('Message content cannot exceed 500 characters');
+    }
+
+    // Check content length (max 500 characters)
+    if (content.length > 500) {
+      throw new BadRequestException('Message content cannot exceed 500 characters');
+    }
+
     // Check for blocked keywords from safety rules
     const senderSafetyRules = await this.safetyRuleModel.findOne({ childId: senderId }).exec();
 

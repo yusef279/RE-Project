@@ -9,6 +9,7 @@ interface GameWrapperProps {
   iconEmoji: string;
   children: ReactNode;
   onGameComplete: (score: number, accuracy: number, metadata: Record<string, any>) => void;
+  usePixiJS?: boolean; // Flag to indicate if game uses PixiJS
 }
 
 export default function GameWrapper({
@@ -17,6 +18,7 @@ export default function GameWrapper({
   iconEmoji,
   children,
   onGameComplete,
+  usePixiJS = false,
 }: GameWrapperProps) {
   const router = useRouter();
   const [startTime] = useState(Date.now());

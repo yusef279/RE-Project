@@ -15,6 +15,7 @@ import { GamesModule } from './games/games.module';
 import { ProtectionModule } from './protection/protection.module';
 import { SandboxModule } from './sandbox/sandbox.module';
 import { ChatModule } from './chat/chat.module';
+import { CommonModule } from './common/common.module';
 
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
@@ -34,6 +35,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
       inject: [ConfigService],
     }),
 
+    CommonModule,
     AuthModule,
     ParentModule,
     TeacherModule,
