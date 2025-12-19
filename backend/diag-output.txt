@@ -1,0 +1,8 @@
+User ID: 69441cacb895c0a8b7d55534
+ParentProfile ID: 69441cacb895c0a8b7d55536
+Children found: 2
+ - ليلى أحمد (Layla Ahmed), parentId: 69441cacb895c0a8b7d55536
+ - yassin, parentId: 69441cacb895c0a8b7d55536
+Total children in DB: 2
+ - ليلى أحمد (Layla Ahmed), parentId: 69441cacb895c0a8b7d55536
+ - yassin, parentId: 69441cacb895c0a8b7d55536
